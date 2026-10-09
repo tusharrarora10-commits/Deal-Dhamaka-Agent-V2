@@ -50,7 +50,23 @@ let selectedContacts=new Set(),selectedProducts=new Set();function getSelected(k
 function rebuildBatchFromSelections(){batch=[];selectedContacts.forEach(c=>selectedProducts.forEach(p=>batch.push({contactId:c,productId:p})));batchIndex=0;updateBatchUI()}
 $('allContacts').onclick=()=>{selectedContacts=new Set(state.contacts.map(x=>x.id));rebuildBatchFromSelections();renderSendLists()};$('clearContacts').onclick=()=>{selectedContacts=new Set();rebuildBatchFromSelections();renderSendLists()};$('allProducts').onclick=()=>{selectedProducts=new Set(state.products.map(x=>x.id));rebuildBatchFromSelections();renderSendLists()};$('clearProducts').onclick=()=>{selectedProducts=new Set();rebuildBatchFromSelections();renderSendLists()};$('sendContactSearch').oninput=renderSendLists;$('sendProductSearch').oninput=renderSendLists;
 function updateBatchUI(){const valid=batch.filter(x=>x.contactId&&x.productId);$('batchInfo').textContent=valid.length?`Ready: ${valid.length} contact-product share(s). ${Math.max(0,valid.length-batchIndex)} remaining.`:'Select at least one contact and one product.';$('openNext').disabled=!valid.length||batchIndex>=valid.length;const cur=valid[batchIndex];if(cur){const c=state.contacts.find(x=>x.id===cur.contactId),p=state.products.find(x=>x.id===cur.productId);$('message').value=makeMessage(c,p)}else if(!valid.length)$('message').value='';$('openNext').textContent=valid.length&&batchIndex<valid.length?`Open Next WhatsApp (${valid.length-batchIndex} left)`:'Batch Completed'}
-function makeMessage(c,p){return `🔥 *Deal Alert!*\n\nHi ${c.name} 👋\n\nCheck out this amazing deal:\n🛍️ *${p.name}*\n${p.price?`💰 ₹${p.price}\n`:''}${p.description?`\n${p.description}\n`:''}\n🔗 Buy Now: ${p.link}\n\nHappy Shopping! ❤️`}
+
+function makeMessage(c,p){
+  return `🥳 Something FREE is waiting for you! 🎁
+
+Hi ${c.name} 👋
+
+🛍️ ${p.brand||p.name}
+✨ ${p.description||''}
+
+👇 Your deal link:
+🔗 ${p.link}
+
+🛒 Place your order & enjoy your freebie! 😍
+
+💥 Deal Dhamaka — Happy Shopping! 🎉`;
+}
+
 $('openNext').onclick=()=>{const valid=batch.filter(x=>x.contactId&&x.productId);const item=valid[batchIndex];if(!item)return;const c=state.contacts.find(x=>x.id===item.contactId),p=state.products.find(x=>x.id===item.productId);if(!c||!p)return alert('Please refresh your selection.');const phone=c.phone.replace(/\D/g,'');if(phone.length<10)return alert('Please use a valid WhatsApp number including country code.');const msg=$('message').value.trim()||makeMessage(c,p);const rec={id:uid(),contactId:c.id,contactName:c.name,phone,productId:p.id,productName:p.name,brand:p.brand,productType:p.productType,platform:p.platform,time:Date.now(),message:msg,status:'WhatsApp opened; send not confirmed'};state.shares.push(rec);save();batchIndex++;updateBatchUI();renderTracking();window.location.href=`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`};$('resetBatch').onclick=()=>{selectedContacts=new Set();selectedProducts=new Set();batch=[];batchIndex=0;renderSendLists()};
 function renderHistory(){const a=[...state.shares].sort((a,b)=>b.time-a.time);$('historyList').innerHTML=a.length?a.map(x=>`<div class="item"><div><h3>${esc(x.contactName)} · ${esc(x.productName)}</h3><p>${esc(x.brand)} · ${esc(x.productType)}</p><p>${new Date(x.time).toLocaleString()}</p><p>${esc(x.phone)} · ${esc(x.status||'Share initiated')}</p></div></div>`).join(''):'<div class="empty">No share attempts recorded yet.</div>'}
 $('clearHistory').onclick=()=>{if(confirm('Clear all share history and tracking records?')){state.shares=[];save();renderHistory();renderTracking()}};
