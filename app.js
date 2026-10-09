@@ -72,7 +72,86 @@ function renderHistory(){const a=[...state.shares].sort((a,b)=>b.time-a.time);$(
 $('clearHistory').onclick=()=>{if(confirm('Clear all share history and tracking records?')){state.shares=[];save();renderHistory();renderTracking()}};
 function countBy(items,keyFn){const m=new Map();items.forEach(x=>{const k=keyFn(x)||'Unspecified';m.set(k,(m.get(k)||0)+1)});return [...m.entries()].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0]))}
 function reportRows(el,entries){$(el).innerHTML=entries.length?entries.map(([k,v])=>`<div class="report-row"><span>${esc(k)}</span><strong>${v}</strong></div>`).join(''):'<div class="report-empty">No records for this selection.</div>'}
-function renderTracking(){const brands=[...new Set(state.shares.map(x=>x.brand).filter(Boolean))].sort(),types=[...new Set(state.shares.map(x=>x.productType).filter(Boolean))].sort(),recipients=[...new Set(state.shares.map(x=>x.contactName).filter(Boolean))].sort();const setOptions=(id,values,label)=>{const old=$(id).value;$(id).innerHTML=`<option value="">All ${label}</option>`+values.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');if(values.includes(old))$(id).value=old};setOptions('filterBrand',brands,'Brands');setOptions('filterType',types,'Product Types');setOptions('filterRecipient',recipients,'Recipients');const all=state.shares;$('trackTotal').textContent=all.length;$('trackBrands').textContent=brands.length;$('trackTypes').textContent=types.length;$('trackRecipients').textContent=recipients.length;const from=$('filterFrom').value?new Date($('filterFrom').value+'T00:00:00').getTime():0,to=$('filterTo').value?new Date($('filterTo').value+'T23:59:59').getTime():Infinity;const a=all.filter(x=>(!$('filterBrand').value||x.brand===$('filterBrand').value)&&(!$('filterType').value||x.productType===$('filterType').value)&&(!$('filterRecipient').value||x.contactName===$('filterRecipient').value)&&x.time>=from&&x.time<=to);reportRows('brandCounts',countBy(a,x=>x.brand));reportRows('typeCounts',countBy(a,x=>x.productType));reportRows('comboCounts',countBy(a,x=>(x.brand||'Unspecified')+' + '+(x.productType||'Unspecified')));reportRows('recipientCounts',countBy(a,x=>x.contactName));$('trackingDetails').innerHTML=a.length?[...a].sort((x,y)=>y.time-x.time).map(x=>`<div class="detail-card"><h4>${esc(x.contactName)} ← ${esc(x.productName)}</h4><p><span class="badge">${esc(x.brand||'No brand')}</span><span class="badge">${esc(x.productType||'No type')}</span></p><p>${new Date(x.time).toLocaleString()} · ${esc(x.phone)}</p><p>${esc(x.status||'Share initiated; delivery not confirmed')}</p></div>`).join(''):'<div class="report-empty">No records match these filters.</div>'}
+
+function toggleOrdered(shareId,checked){
+  const item=state.shares.find(x=>x.id===shareId);
+  if(!item)return;
+  item.ordered=checked;
+  item.orderedAt=checked?new Date().toISOString():'';
+  save();
+  renderTracking();
+}
+
+
+function renderTracking(){
+  const brands=[...new Set(state.shares.map(x=>x.brand).filter(Boolean))].sort();
+  const types=[...new Set(state.shares.map(x=>x.productType).filter(Boolean))].sort();
+  const recipients=[...new Set(state.shares.map(x=>x.contactName).filter(Boolean))].sort();
+
+  const setOptions=(id,values,label)=>{
+    const old=$(id).value;
+    $(id).innerHTML=`<option value="">All ${label}</option>`+
+      values.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');
+    if(values.includes(old))$(id).value=old;
+  };
+
+  setOptions('filterBrand',brands,'Brands');
+  setOptions('filterType',types,'Product Types');
+  setOptions('filterRecipient',recipients,'Recipients');
+
+  const all=state.shares;
+  $('trackTotal').textContent=all.length;
+  $('trackBrands').textContent=brands.length;
+  $('trackTypes').textContent=types.length;
+  $('trackRecipients').textContent=recipients.length;
+
+  const from=$('filterFrom').value
+    ?new Date($('filterFrom').value+'T00:00:00').getTime():0;
+  const to=$('filterTo').value
+    ?new Date($('filterTo').value+'T23:59:59').getTime():Infinity;
+
+  const a=all.filter(x=>
+    (!$('filterBrand').value||x.brand===$('filterBrand').value)&&
+    (!$('filterType').value||x.productType===$('filterType').value)&&
+    (!$('filterRecipient').value||x.contactName===$('filterRecipient').value)&&
+    x.time>=from&&x.time<=to
+  );
+
+  reportRows('brandCounts',countBy(a,x=>x.brand));
+  reportRows('typeCounts',countBy(a,x=>x.productType));
+  reportRows('comboCounts',countBy(a,x=>(x.brand||'Unspecified')+' + '+(x.productType||'Unspecified')));
+  reportRows('recipientCounts',countBy(a,x=>x.contactName));
+
+  const ordered=a.filter(x=>x.ordered).length;
+  const pending=a.length-ordered;
+
+  $('trackingDetails').innerHTML=`
+    <div class="card order-summary">
+      <p><b>Shared:</b> ${a.length}</p>
+      <p><b>Ordered:</b> ${ordered}</p>
+      <p><b>Pending:</b> ${pending}</p>
+    </div>
+  `+(a.length
+    ?[...a].sort((x,y)=>y.time-x.time).map(x=>`
+      <div class="detail-card">
+        <h4>${esc(x.contactName)} ← ${esc(x.brand||x.productName)}</h4>
+        <p>
+          <span class="badge">${esc(x.brand||'No brand')}</span>
+          <span class="badge">${esc(x.productType||'No type')}</span>
+        </p>
+        <p>${new Date(x.time).toLocaleString()} · ${esc(x.phone)}</p>
+        <p>${esc(x.status||'Share initiated; delivery not confirmed')}</p>
+        <label class="ordered-toggle">
+          <input type="checkbox"
+            ${x.ordered?'checked':''}
+            onchange="toggleOrdered('${esc(x.id)}',this.checked)">
+          Product Ordered
+        </label>
+      </div>
+    `).join('')
+    :'<div class="report-empty">No records match these filters.</div>');
+}
+
 ['filterBrand','filterType','filterRecipient','filterFrom','filterTo'].forEach(id=>$(id).addEventListener('change',renderTracking));$('refreshTracking').onclick=renderTracking;$('clearFilters').onclick=()=>{['filterBrand','filterType','filterRecipient','filterFrom','filterTo'].forEach(id=>$(id).value='');renderTracking()};
 function download(name,content,type){const a=document.createElement('a');const url=URL.createObjectURL(new Blob([content],{type}));a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}$('exportTrackingCsv').onclick=()=>{const headers=['Date','Recipient','Phone','Product','Brand','Product Type','Platform','Status'];const rows=state.shares.map(x=>[new Date(x.time).toISOString(),x.contactName,x.phone,x.productName,x.brand,x.productType,x.platform,x.status]);const csv=[headers,...rows].map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\r\n');download('deal-dhamaka-tracking.csv',csv,'text/csv;charset=utf-8')};
 $('exportData').onclick=()=>download('deal-dhamaka-backup.json',JSON.stringify({version:2,exportedAt:new Date().toISOString(),...state},null,2),'application/json');
