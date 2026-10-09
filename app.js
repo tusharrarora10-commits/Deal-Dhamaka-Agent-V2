@@ -11,7 +11,35 @@ document.querySelectorAll('.tabbar button,[data-page]').forEach(b=>b.addEventLis
 function openModal(title,html,submit){$('modalTitle').textContent=title;$('modalForm').innerHTML=html+'<button class="primary big" type="submit">Save</button>';$('modal').hidden=false;$('modalForm').onsubmit=async e=>{e.preventDefault();await submit(new FormData(e.target));$('modal').hidden=true;save();const active=document.querySelector('.page.active')?.id||'dashboard';showPage(active)}};
 $('closeModal').onclick=()=>$('modal').hidden=true;
 function addContact(x){x=x||{name:'',phone:'',category:'General'};openModal(x.id?'Edit Contact':'Add Contact',`<label>Name<input name="name" required value="${esc(x.name)}"></label><label>WhatsApp Number (with country code)<input name="phone" required inputmode="tel" placeholder="919876543210" value="${esc(x.phone)}"></label><label>Category<input name="category" value="${esc(x.category||'General')}"></label>`,f=>{const obj={id:x.id||uid(),name:f.get('name').trim(),phone:f.get('phone').replace(/\D/g,''),category:f.get('category').trim()||'General'};if(obj.phone.length<10)throw alert('Please enter a valid number including country code.');const i=state.contacts.findIndex(c=>c.id===obj.id);if(i>=0)state.contacts[i]=obj;else state.contacts.push(obj)})}
-function addProduct(x){x=x||{name:'',brand:'',productType:'',description:'',price:'',platform:'Amazon',link:''};openModal(x.id?'Edit Product':'Add Product',`<label>Product Name<input name="name" required value="${esc(x.name)}"></label><label>Brand Name<input name="brand" required placeholder="e.g. Nike" value="${esc(x.brand)}"></label><label>Product Type<input name="productType" required placeholder="e.g. Shoes" value="${esc(x.productType)}"></label><label>Description<textarea name="description">${esc(x.description)}</textarea></label><label>Price (₹)<input name="price" inputmode="decimal" value="${esc(x.price)}"></label><label>Platform<select name="platform">${['Amazon','Flipkart','Nykaa','Myntra','Other'].map(v=>`<option ${x.platform===v?'selected':''}>${v}</option>`).join('')}</select></label><label>Product Link<input name="link" type="url" required placeholder="https://..." value="${esc(x.link)}"></label>`,f=>{const obj={id:x.id||uid(),name:f.get('name').trim(),brand:f.get('brand').trim(),productType:f.get('productType').trim(),description:f.get('description').trim(),price:f.get('price').trim(),platform:f.get('platform'),link:f.get('link').trim()};const i=state.products.findIndex(p=>p.id===obj.id);if(i>=0)state.products[i]=obj;else state.products.push(obj)})}
+
+function addProduct(x){
+  x=x||{name:'',brand:'',productType:'',description:'',price:'',platform:'Amazon',link:''};
+  x.brand=x.brand||x.name||'';
+  openModal(x.id?'Edit Product':'Add Product',
+  `<div class="product-form-grid">
+  <label>Brand Name<input name="brand" required placeholder="e.g. Nike" value="${esc(x.brand)}"></label>
+  <label>Product Type<input name="productType" required placeholder="e.g. Shoes" value="${esc(x.productType)}"></label>
+  <label class="wide">Description<textarea name="description" rows="2">${esc(x.description)}</textarea></label>
+  <label>Price (₹)<input name="price" inputmode="decimal" value="${esc(x.price)}"></label>
+  <label>Platform<select name="platform">${['Amazon','Flipkart','Nykaa','Myntra','Other'].map(v=>`<option ${x.platform===v?'selected':''}>${v}</option>`).join('')}</select></label>
+  <label class="wide">Product Link<input name="link" type="url" required placeholder="https://..." value="${esc(x.link)}"></label>
+  </div>`,
+  f=>{
+    const brand=f.get('brand').trim();
+    const obj={
+      id:x.id||uid(),name:brand,brand,
+      productType:f.get('productType').trim(),
+      description:f.get('description').trim(),
+      price:f.get('price').trim(),
+      platform:f.get('platform'),
+      link:f.get('link').trim()
+    };
+    const i=state.products.findIndex(p=>p.id===obj.id);
+    if(i>=0)state.products[i]=obj;
+    else state.products.push(obj);
+  });
+}
+
 $('addContact').onclick=()=>addContact();$('addProduct').onclick=()=>addProduct();
 function renderContacts(){const q=$('contactSearch').value.toLowerCase();const a=state.contacts.filter(x=>(x.name+' '+x.phone+' '+x.category).toLowerCase().includes(q));$('contactsList').innerHTML=a.length?a.map(x=>`<div class="item"><div><h3>${esc(x.name)}</h3><p>WhatsApp: ${esc(x.phone)}</p><p>${esc(x.category)}</p></div><div class="actions"><button class="mini" data-edit="${x.id}">Edit</button><button class="mini" data-delete="${x.id}">Delete</button></div></div>`).join(''):'<div class="empty">No contacts yet. Add one or import a CSV.</div>';bindItemActions('contacts')}
 function renderProducts(){const q=$('productSearch').value.toLowerCase();const a=state.products.filter(x=>(x.name+' '+x.brand+' '+x.productType+' '+x.platform+' '+x.link).toLowerCase().includes(q));$('productsList').innerHTML=a.length?a.map(x=>`<div class="item"><div><h3>${esc(x.name)}</h3><p><b>${esc(x.brand||'No brand')}</b> · ${esc(x.productType||'No type')}</p><p>${esc(x.platform)}${x.price?' · ₹'+esc(x.price):''}</p><p>${esc(x.link)}</p></div><div class="actions"><button class="mini" data-edit="${x.id}">Edit</button><button class="mini" data-delete="${x.id}">Delete</button></div></div>`).join(''):'<div class="empty">No products yet. Add one or import a CSV.</div>';bindItemActions('products')}
