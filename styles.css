@@ -45,3 +45,24 @@ label{font-size:12px;margin:6px 0 2px}
 .tabbar{padding:4px 1px calc(4px + env(safe-area-inset-bottom))}
 .tabbar button{font-size:9px;min-width:43px;gap:2px;padding:4px 2px}
 
+.ordered-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 12px;
+  border-radius: 10px;
+  background: #eaf7ee;
+  color: #176534;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ordered-toggle input[type="checkbox"] {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  accent-color: #218838;
+  cursor: pointer;
+}
+
