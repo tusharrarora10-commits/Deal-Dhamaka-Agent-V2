@@ -97,3 +97,35 @@ label{font-size:12px;margin:6px 0 2px}
     margin-top: 8px;
   }
 }
+/* Individual Delete buttons in History */
+#historyList .item {
+align-items: flex-start;
+flex-wrap: wrap;
+}
+
+#historyList .item > div {
+flex: 1 1 220px;
+min-width: 0;
+}
+
+#historyList .delete-history {
+display: inline-flex;
+align-items: center;
+justify-content: center;
+min-height: 42px;
+padding: 10px 14px;
+border: 0;
+border-radius: 12px;
+background: #fee4e2;
+color: #b42318;
+font-weight: 750;
+font-size: 14px;
+cursor: pointer;
+}
+
+@media (max-width: 520px) {
+#historyList .delete-history {
+width: 100%;
+margin-top: 8px;
+}
+}
