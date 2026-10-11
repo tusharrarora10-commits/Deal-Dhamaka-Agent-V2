@@ -388,7 +388,6 @@ function toggleOrdered(shareId,checked){
   renderTracking();
 }
 
-/* Tracking with multiple checkbox filters */
 function renderTracking(){
   const brands=[...new Set(state.shares.map(x=>x.brand).filter(Boolean))].sort();
   const types=[...new Set(state.shares.map(x=>x.productType).filter(Boolean))].sort();
@@ -404,7 +403,6 @@ function renderTracking(){
       container.innerHTML='<p class="hint">No options available.</p>';
       return;
     }
-
     container.innerHTML=values.map(value=>`
       <label class="filter-option">
         <input type="checkbox" value="${esc(value)}" ${selectedValues.includes(value)?"checked":""}>
@@ -420,6 +418,14 @@ function renderTracking(){
   setOptions("filterType",types,oldTypes);
   setOptions("filterRecipient",recipients,oldRecipients);
 
+  const updateSummary=(id,values,allLabel)=>{
+    const el=$(id);
+    el.textContent=!values.length?allLabel:values.length===1?values[0]:values.length+" selected";
+  };
+  updateSummary("brandFilterSummary",oldBrands,"All Brands");
+  updateSummary("typeFilterSummary",oldTypes,"All Product Types");
+  updateSummary("recipientFilterSummary",oldRecipients,"All Recipients");
+
   $("trackTotal").textContent=state.shares.length;
   $("trackBrands").textContent=brands.length;
   $("trackTypes").textContent=types.length;
@@ -431,7 +437,6 @@ function renderTracking(){
 
   const from=$("filterFrom").value
     ?new Date($("filterFrom").value+"T00:00:00").getTime():0;
-
   const to=$("filterTo").value
     ?new Date($("filterTo").value+"T23:59:59.999").getTime():Infinity;
 
