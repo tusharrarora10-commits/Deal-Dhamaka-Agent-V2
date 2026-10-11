@@ -1,5 +1,5 @@
 
-const CACHE = 'deal-dhamaka-v6-cache';
+const CACHE = 'deal-dhamaka-v7-cache';
 
 const ASSETS = [
   './',
@@ -7,6 +7,7 @@ const ASSETS = [
   './styles.css',
   './app.js',
   './dashboard.js',
+  './followup.js',
   './manifest.json'
 ];
 
@@ -15,6 +16,8 @@ const APP_FILES = new Set([
   './index.html',
   './styles.css',
   './app.js',
+  './dashboard.js',
+  './followup.js',
   './manifest.json'
 ]);
 
@@ -50,10 +53,11 @@ self.addEventListener('fetch', event => {
   if (url.origin !== self.location.origin) return;
 
   const path = url.pathname;
-  const isAppFile =
+    const isAppFile =
   path.endsWith('/styles.css') ||
   path.endsWith('/app.js') ||
   path.endsWith('/dashboard.js') ||
+  path.endsWith('/followup.js') ||
   path.endsWith('/index.html') ||
   path.endsWith('/manifest.json') ||
   path.endsWith('/');
