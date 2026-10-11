@@ -440,11 +440,18 @@ function renderTracking(){
   const to=$("filterTo").value
     ?new Date($("filterTo").value+"T23:59:59.999").getTime():Infinity;
 
+    const orderStatus=$("filterOrderStatus").value;
+
   const a=state.shares.filter(x=>
     (!selectedBrands.length||selectedBrands.includes(x.brand))&&
     (!selectedTypes.length||selectedTypes.includes(x.productType))&&
     (!selectedRecipients.length||selectedRecipients.includes(x.contactName))&&
-    x.time>=from&&x.time<=to
+    x.time>=from&&x.time<=to&&
+    (
+      orderStatus==="all"||
+      (orderStatus==="ordered"&&!!x.ordered)||
+      (orderStatus==="pending"&&!x.ordered)
+    )
   );
 
   reportRows("brandCounts",countBy(a,x=>x.brand));
@@ -481,7 +488,7 @@ function renderTracking(){
 ["filterBrand","filterType","filterRecipient"].forEach(id=>
   $(id).addEventListener("change",renderTracking)
 );
-["filterFrom","filterTo"].forEach(id=>
+["filterFrom","filterTo","filterOrderStatus"].forEach(id=>
   $(id).addEventListener("change",renderTracking)
 );
 
@@ -495,6 +502,7 @@ $("clearFilters").onclick=()=>{
   });
   $("filterFrom").value="";
   $("filterTo").value="";
+  $("filterOrderStatus").value="all";
   renderTracking();
 };
 
