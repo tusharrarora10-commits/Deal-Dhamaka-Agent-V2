@@ -122,17 +122,35 @@
     <div class="stat"><b id="trackRecipients">0</b><span>Recipients</span></div>
   </div>
 
-  <div class="card">
+  <div class="card tracking-filter-card">
     <h3>Filters</h3>
 
-    <label>Brand — select multiple</label>
-    <div id="filterBrand" class="filter-options"></div>
+    <label>Brand</label>
+    <details class="multi-filter">
+      <summary>
+        <span id="brandFilterSummary">All Brands</span>
+        <span class="dropdown-arrow">▾</span>
+      </summary>
+      <div id="filterBrand" class="filter-options"></div>
+    </details>
 
-    <label>Product Type — select multiple</label>
-    <div id="filterType" class="filter-options"></div>
+    <label>Product Type</label>
+    <details class="multi-filter">
+      <summary>
+        <span id="typeFilterSummary">All Product Types</span>
+        <span class="dropdown-arrow">▾</span>
+      </summary>
+      <div id="filterType" class="filter-options"></div>
+    </details>
 
-    <label>Recipient — select multiple</label>
-    <div id="filterRecipient" class="filter-options"></div>
+    <label>Recipient</label>
+    <details class="multi-filter">
+      <summary>
+        <span id="recipientFilterSummary">All Recipients</span>
+        <span class="dropdown-arrow">▾</span>
+      </summary>
+      <div id="filterRecipient" class="filter-options"></div>
+    </details>
 
     <label>From date</label>
     <input type="date" id="filterFrom">
