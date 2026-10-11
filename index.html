@@ -111,7 +111,7 @@
 
 <section id="tracking" class="page">
   <div class="sectionhead">
-    <div><h2>Tracking</h2><p>Brand, product type, recipient and date-wise counts</p></div>
+    <div><h2>Tracking</h2><p>Brand, product type, recipient, order status and date-wise counts</p></div>
     <button class="secondary" id="refreshTracking">Refresh</button>
   </div>
 
@@ -151,6 +151,13 @@
       </summary>
       <div id="filterRecipient" class="filter-options"></div>
     </details>
+
+    <label>Order Status</label>
+    <select id="filterOrderStatus">
+      <option value="all">All Orders &amp; Pending</option>
+      <option value="ordered">Ordered Only</option>
+      <option value="pending">Pending Only</option>
+    </select>
 
     <label>From date</label>
     <input type="date" id="filterFrom">
