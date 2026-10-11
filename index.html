@@ -1,20 +1,214 @@
+
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#111827"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>Deal Dhamaka Agent</title><link rel="manifest" href="manifest.json"><link rel="stylesheet" href="styles.css">
-</head><body>
-<header class="topbar"><div><div class="eyebrow">DEAL DHAMAKA</div><h1>WhatsApp Agent</h1></div><button id="installBtn" class="iconbtn" hidden>＋</button></header>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#111827">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Deal Dhamaka Agent</title>
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="topbar">
+  <div>
+    <div class="eyebrow">DEAL DHAMAKA</div>
+    <h1>WhatsApp Agent</h1>
+  </div>
+  <button id="installBtn" class="iconbtn" hidden>＋</button>
+</header>
+
 <main>
-<section id="dashboard" class="page active"><div class="hero"><h2>Share deals. Track everything.</h2><p>Manage products and contacts, share through WhatsApp, and see brand-wise and recipient-wise results.</p></div><div class="stats"><div class="stat"><b id="contactCount">0</b><span>Contacts</span></div><div class="stat"><b id="productCount">0</b><span>Products</span></div><div class="stat"><b id="sentCount">0</b><span>Share Attempts</span></div></div><button class="primary big" data-page="send">Send a Deal →</button><button class="secondary full" data-page="tracking">Open Tracking Dashboard</button><div class="card"><h3>How it works</h3><ol><li>Add contacts and products.</li><li>Enter brand and product type for each product.</li><li>Select recipients and products.</li><li>Open each WhatsApp chat and tap Send.</li><li>Review share-attempt counts in Tracking.</li></ol></div></section>
-<section id="contacts" class="page"><div class="sectionhead"><div><h2>Contacts</h2><p>Names and WhatsApp numbers</p></div><button class="primary" id="addContact">＋ Add</button></div><input id="contactSearch" class="search" placeholder="Search name or number"><div id="contactsList"></div></section>
-<section id="products" class="page"><div class="sectionhead"><div><h2>Products</h2><p>Deals, brands, product types and links</p></div><button class="primary" id="addProduct">＋ Add</button></div><input id="productSearch" class="search" placeholder="Search product, brand or type"><div id="productsList"></div></section>
-<section id="send" class="page"><div class="sectionhead"><div><h2>Send WhatsApp</h2><p>Choose multiple contacts and products</p></div></div><div class="card"><div class="selection-head"><h3>Select Contacts</h3><div><button class="mini" id="allContacts">All</button> <button class="mini" id="clearContacts">Clear</button></div></div><input id="sendContactSearch" class="search" placeholder="Find contact"><div id="sendContacts" class="checklist"></div></div><div class="card"><div class="selection-head"><h3>Select Products</h3><div><button class="mini" id="allProducts">All</button> <button class="mini" id="clearProducts">Clear</button></div></div><input id="sendProductSearch" class="search" placeholder="Find product"><div id="sendProducts" class="checklist"></div></div><div class="card"><h3>Message Preview</h3><label>Message<textarea id="message" rows="9" placeholder="Select one contact and one product to preview a message"></textarea></label><p class="hint">For bulk sharing, the app opens one WhatsApp chat at a time. You must tap Send in WhatsApp, then return here and tap the next button.</p><div id="batchInfo" class="notice">Select contacts and products to begin.</div><button id="openNext" class="whatsapp big" disabled>Open Next WhatsApp</button><button id="resetBatch" class="secondary full">Reset Selection</button></div></section>
-<section id="history" class="page"><div class="sectionhead"><div><h2>History</h2><p>Share attempts initiated from this app</p></div><button class="danger" id="clearHistory">Clear</button></div><div id="historyList"></div></section>
-<section id="tracking" class="page"><div class="sectionhead"><div><h2>Tracking</h2><p>Brand, product type, recipient and date-wise counts</p></div><button class="secondary" id="refreshTracking">Refresh</button></div><div class="stats four"><div class="stat"><b id="trackTotal">0</b><span>Total Shares</span></div><div class="stat"><b id="trackBrands">0</b><span>Brands</span></div><div class="stat"><b id="trackTypes">0</b><span>Product Types</span></div><div class="stat"><b id="trackRecipients">0</b><span>Recipients</span></div></div><div class="card"><h3>Filters</h3><label>Brand<select id="filterBrand"><option value="">All Brands</option></select></label><label>Product Type<select id="filterType"><option value="">All Product Types</option></select></label><label>Recipient<select id="filterRecipient"><option value="">All Recipients</option></select></label><label>From date<input type="date" id="filterFrom"></label><label>To date<input type="date" id="filterTo"></label><button id="clearFilters" class="secondary full">Clear Filters</button></div><div class="card"><h3>Brand-wise Count</h3><div id="brandCounts" class="report"></div></div><div class="card"><h3>Product Type-wise Count</h3><div id="typeCounts" class="report"></div></div><div class="card"><h3>Brand + Product Type</h3><div id="comboCounts" class="report"></div></div><div class="card"><h3>Recipient-wise Count</h3><div id="recipientCounts" class="report"></div></div><div class="card"><h3>Recipient Details</h3><div id="trackingDetails" class="report"></div><button id="exportTrackingCsv" class="secondary full">Export Tracking CSV</button></div></section>
-<section id="settings" class="page"><div class="sectionhead"><div><h2>Data & Settings</h2><p>Backup your local data</p></div></div><div class="card"><button class="secondary full" id="exportData">Export Full Backup (JSON)</button><label class="filelabel">Import Backup (JSON)<input type="file" id="importData" accept=".json,application/json"></label><button class="secondary full" id="importCsvContacts">Import Contacts CSV</button><input type="file" id="contactsCsv" accept=".csv,text/csv" hidden><button class="secondary full" id="importCsvProducts">Import Products CSV</button><input type="file" id="productsCsv" accept=".csv,text/csv" hidden><p class="hint">Data is stored on this device/browser. Export backups regularly. Private browsing or clearing website data may erase it.</p><button class="danger full" id="resetData">Delete All Local Data</button></div></section>
+<section id="dashboard" class="page active">
+  <div class="hero">
+    <h2>Share deals. Track everything.</h2>
+    <p>Manage products and contacts, share through WhatsApp, and see brand-wise and recipient-wise results.</p>
+  </div>
+  <div class="stats">
+    <div class="stat"><b id="contactCount">0</b><span>Contacts</span></div>
+    <div class="stat"><b id="productCount">0</b><span>Products</span></div>
+    <div class="stat"><b id="sentCount">0</b><span>Share Attempts</span></div>
+  </div>
+  <button class="primary big" data-page="send">Send a Deal →</button>
+  <button class="secondary full" data-page="tracking">Open Tracking Dashboard</button>
+  <div class="card">
+    <h3>How it works</h3>
+    <ol>
+      <li>Add contacts and products.</li>
+      <li>Enter brand and product type for each product.</li>
+      <li>Select recipients and products.</li>
+      <li>Open each WhatsApp chat and tap Send.</li>
+      <li>Review share-attempt counts in Tracking.</li>
+    </ol>
+  </div>
+</section>
+
+<section id="contacts" class="page">
+  <div class="sectionhead">
+    <div><h2>Contacts</h2><p>Names and WhatsApp numbers</p></div>
+    <button class="primary" id="addContact">＋ Add</button>
+  </div>
+  <input id="contactSearch" class="search" placeholder="Search name or number">
+  <div id="contactsList"></div>
+</section>
+
+<section id="products" class="page">
+  <div class="sectionhead">
+    <div><h2>Products</h2><p>Deals, brands, product types and links</p></div>
+    <button class="primary" id="addProduct">＋ Add</button>
+  </div>
+  <input id="productSearch" class="search" placeholder="Search product, brand or type">
+  <div id="productsList"></div>
+</section>
+
+<section id="send" class="page">
+  <div class="sectionhead">
+    <div><h2>Send WhatsApp</h2><p>Choose multiple contacts and products</p></div>
+  </div>
+  <div class="card">
+    <div class="selection-head">
+      <h3>Select Contacts</h3>
+      <div>
+        <button class="mini" id="allContacts">All</button>
+        <button class="mini" id="clearContacts">Clear</button>
+      </div>
+    </div>
+    <input id="sendContactSearch" class="search" placeholder="Find contact">
+    <div id="sendContacts" class="checklist"></div>
+  </div>
+  <div class="card">
+    <div class="selection-head">
+      <h3>Select Products</h3>
+      <div>
+        <button class="mini" id="allProducts">All</button>
+        <button class="mini" id="clearProducts">Clear</button>
+      </div>
+    </div>
+    <input id="sendProductSearch" class="search" placeholder="Find product">
+    <div id="sendProducts" class="checklist"></div>
+  </div>
+  <div class="card">
+    <h3>Message Preview</h3>
+    <label>Message
+      <textarea id="message" rows="9" placeholder="Select one contact and one product to preview a message"></textarea>
+    </label>
+    <p class="hint">For bulk sharing, the app opens one WhatsApp chat at a time. You must tap Send in WhatsApp, then return here and tap the next button.</p>
+    <div id="batchInfo" class="notice">Select contacts and products to begin.</div>
+    <button id="openNext" class="whatsapp big" disabled>Open Next WhatsApp</button>
+    <button id="resetBatch" class="secondary full">Reset Selection</button>
+  </div>
+</section>
+
+<section id="history" class="page">
+  <div class="sectionhead">
+    <div><h2>History</h2><p>Share attempts initiated from this app</p></div>
+    <button class="danger" id="clearHistory">Clear</button>
+  </div>
+  <div id="historyList"></div>
+</section>
+
+<section id="tracking" class="page">
+  <div class="sectionhead">
+    <div><h2>Tracking</h2><p>Brand, product type, recipient and date-wise counts</p></div>
+    <button class="secondary" id="refreshTracking">Refresh</button>
+  </div>
+
+  <div class="stats four">
+    <div class="stat"><b id="trackTotal">0</b><span>Total Shares</span></div>
+    <div class="stat"><b id="trackBrands">0</b><span>Brands</span></div>
+    <div class="stat"><b id="trackTypes">0</b><span>Product Types</span></div>
+    <div class="stat"><b id="trackRecipients">0</b><span>Recipients</span></div>
+  </div>
+
+  <div class="card">
+    <h3>Filters</h3>
+
+    <label>Brand — select multiple</label>
+    <div id="filterBrand" class="filter-options"></div>
+
+    <label>Product Type — select multiple</label>
+    <div id="filterType" class="filter-options"></div>
+
+    <label>Recipient — select multiple</label>
+    <div id="filterRecipient" class="filter-options"></div>
+
+    <label>From date</label>
+    <input type="date" id="filterFrom">
+
+    <label>To date</label>
+    <input type="date" id="filterTo">
+
+    <button id="clearFilters" class="secondary full">Clear Filters</button>
+  </div>
+
+  <div class="card">
+    <h3>Brand-wise Count</h3>
+    <div id="brandCounts" class="report"></div>
+  </div>
+
+  <div class="card">
+    <h3>Product Type-wise Count</h3>
+    <div id="typeCounts" class="report"></div>
+  </div>
+
+  <div class="card">
+    <h3>Brand + Product Type</h3>
+    <div id="comboCounts" class="report"></div>
+  </div>
+
+  <div class="card">
+    <h3>Recipient-wise Count</h3>
+    <div id="recipientCounts" class="report"></div>
+  </div>
+
+  <div class="card">
+    <h3>Recipient Details</h3>
+    <div id="trackingDetails" class="report"></div>
+    <button id="exportTrackingCsv" class="secondary full">Export Tracking CSV</button>
+  </div>
+</section>
+
+<section id="settings" class="page">
+  <div class="sectionhead">
+    <div><h2>Data &amp; Settings</h2><p>Backup your local data</p></div>
+  </div>
+  <div class="card">
+    <button class="secondary full" id="exportData">Export Full Backup (JSON)</button>
+    <label class="filelabel">Import Backup (JSON)
+      <input type="file" id="importData" accept=".json,application/json">
+    </label>
+    <button class="secondary full" id="importCsvContacts">Import Contacts CSV</button>
+    <input type="file" id="contactsCsv" accept=".csv,text/csv" hidden>
+    <button class="secondary full" id="importCsvProducts">Import Products CSV</button>
+    <input type="file" id="productsCsv" accept=".csv,text/csv" hidden>
+    <p class="hint">Data is stored on this device/browser. Export backups regularly. Private browsing or clearing website data may erase it.</p>
+    <button class="danger full" id="resetData">Delete All Local Data</button>
+  </div>
+</section>
 </main>
-<nav class="tabbar"><button data-page="dashboard">⌂<span>Home</span></button><button data-page="contacts">♙<span>Contacts</span></button><button data-page="products">▣<span>Products</span></button><button data-page="send">↗<span>Send</span></button><button data-page="history">◷<span>History</span></button><button data-page="settings">⚙<span>Settings</span></button><button data-page="tracking">📊<span>Tracking</span></button></nav>
-<div id="modal" class="modal" hidden><div class="modalbox"><div class="modalhead"><h3 id="modalTitle"></h3><button id="closeModal" type="button">×</button></div><form id="modalForm"></form></div></div>
+
+<nav class="tabbar">
+  <button data-page="dashboard">⌂<span>Home</span></button>
+  <button data-page="contacts">♙<span>Contacts</span></button>
+  <button data-page="products">▣<span>Products</span></button>
+  <button data-page="send">↗<span>Send</span></button>
+  <button data-page="history">◷<span>History</span></button>
+  <button data-page="settings">⚙<span>Settings</span></button>
+  <button data-page="tracking">📊<span>Tracking</span></button>
+</nav>
+
+<div id="modal" class="modal" hidden>
+  <div class="modalbox">
+    <div class="modalhead">
+      <h3 id="modalTitle"></h3>
+      <button id="closeModal" type="button">×</button>
+    </div>
+    <form id="modalForm"></form>
+  </div>
+</div>
+
 <script src="app.js"></script>
-</body></html>
+</body>
+</html>
