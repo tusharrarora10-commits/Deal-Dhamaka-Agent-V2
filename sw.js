@@ -1,11 +1,12 @@
 
-const CACHE = 'deal-dhamaka-v5-cache';
+const CACHE = 'deal-dhamaka-v6-cache';
 
 const ASSETS = [
   './',
   './index.html',
   './styles.css',
   './app.js',
+  './dashboard.js',
   './manifest.json'
 ];
 
@@ -50,11 +51,12 @@ self.addEventListener('fetch', event => {
 
   const path = url.pathname;
   const isAppFile =
-    path.endsWith('/styles.css') ||
-    path.endsWith('/app.js') ||
-    path.endsWith('/index.html') ||
-    path.endsWith('/manifest.json') ||
-    path.endsWith('/');
+  path.endsWith('/styles.css') ||
+  path.endsWith('/app.js') ||
+  path.endsWith('/dashboard.js') ||
+  path.endsWith('/index.html') ||
+  path.endsWith('/manifest.json') ||
+  path.endsWith('/');
 
   if (isAppFile) {
     event.respondWith(
