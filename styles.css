@@ -140,21 +140,37 @@ label{font-size:12px;margin:6px 0 2px}
   #historyList .delete-history{width:100%;margin-top:8px}
 }
 
-/* Mobile-friendly multi-select Tracking filters */
-.filter-options{
-  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;
-  max-height:220px;overflow-y:auto;padding:8px;margin:6px 0 16px;
-  border:1px solid #d1d5db;border-radius:12px;background:#fff;
+/* Multi-select Tracking dropdowns */
+.tracking-filter-card{overflow:visible}
+.multi-filter{position:relative;margin:5px 0 14px}
+.multi-filter summary{
+  list-style:none;display:flex;align-items:center;justify-content:space-between;
+  gap:12px;min-height:46px;padding:12px 14px;border:1px solid #d1d5db;
+  border-radius:12px;background:#fff;font-size:14px;font-weight:600;cursor:pointer;
+}
+.multi-filter summary::-webkit-details-marker{display:none}
+.multi-filter[open] summary{border-color:#3478f6;border-radius:12px 12px 0 0}
+.dropdown-arrow{flex-shrink:0;font-size:18px}
+.multi-filter[open] .dropdown-arrow{transform:rotate(180deg)}
+.multi-filter .filter-options{display:none}
+.multi-filter[open] .filter-options{
+  display:block;max-height:230px;overflow-y:auto;padding:8px;margin:0;
+  border:1px solid #3478f6;border-top:0;border-radius:0 0 12px 12px;
+  background:#fff;box-shadow:0 8px 18px #11182718;
 }
 .filter-option{
-  display:flex;align-items:center;gap:8px;min-width:0;margin:0;padding:9px;
-  border-radius:8px;background:#f3f4f6;font-size:12px;font-weight:600;
-  overflow-wrap:anywhere;
+  display:flex;align-items:center;gap:10px;padding:11px 8px;margin:0;
+  border-bottom:1px solid #f0f1f3;border-radius:6px;font-size:13px;
+  font-weight:500;overflow-wrap:anywhere;
 }
-.filter-option input{
-  width:18px;height:18px;flex-shrink:0;margin:0;accent-color:#3478f6;
+.filter-option:last-child{border-bottom:0}
+.filter-option input[type="checkbox"]{
+  appearance:auto;-webkit-appearance:checkbox;display:inline-block;
+  width:20px;height:20px;min-width:20px;margin:0;padding:0;
+  accent-color:#3478f6;cursor:pointer;
 }
-.filter-option span{overflow-wrap:anywhere}
-@media(max-width:380px){
-  .filter-options{grid-template-columns:1fr}
+.filter-option span{flex:1;min-width:0;overflow-wrap:anywhere}
+@media(max-width:520px){
+  .multi-filter summary{min-height:48px;font-size:14px}
+  .multi-filter[open] .filter-options{max-height:250px}
 }
