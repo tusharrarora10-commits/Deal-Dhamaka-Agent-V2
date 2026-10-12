@@ -95,6 +95,31 @@
         margin: 0 0 6px;
         font-size: 18px;
       }
+      
+      .followup-details > summary {
+        cursor: pointer;
+        list-style: none;
+        padding: 16px;
+        font-weight: 800;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .followup-details > summary::-webkit-details-marker {
+        display: none;
+      }
+      .followup-details > summary::after {
+        content: "＋";
+        font-size: 20px;
+      }
+      .followup-details[open] > summary::after {
+        content: "−";
+      }
+      .followup-content {
+        padding: 0 16px 16px;
+      }
+
       .followup-intro {
         margin: 0 0 10px;
         font-size: 13px;
@@ -136,44 +161,45 @@
     document.head.appendChild(style);
   }
 
+
   function alertMarkup() {
     const stale = getStalePending();
 
-    if (!stale.length) {
-      return `
-        <h3>⏰ Pending Follow-Ups</h3>
-        <p class="followup-empty">
-          No pending records have been inactive for 24 hours.
-        </p>`;
-    }
-
     return `
-      <h3>⏰ Pending Follow-Ups</h3>
-      <p class="followup-intro">
-        These pending records have had no saved update for at least 24 hours.
-      </p>
-      <span class="followup-count">
-        ${stale.length} record${stale.length === 1 ? "" : "s"} need attention
-      </span>
-      ${stale.map(({ item, age }) => `
-        <div class="followup-item">
-          <strong>${escapeHtml(item.contactName || "Unknown contact")}</strong>
-          <div>${escapeHtml(item.brand || item.productName || "Unknown product")}</div>
-          <small>
-            ${escapeHtml(item.productType || "Product type unspecified")}
-            · ${escapeHtml(formatAge(age))}
-          </small>
-          <small>
-            Last activity: ${escapeHtml(
-              new Date(getLastActivity(item)).toLocaleString()
-            )}
-          </small>
+      <details class="followup-details">
+        <summary>
+          <span>⏰ Pending Follow-Ups</span>
+          <span class="followup-count">
+            ${stale.length} need attention
+          </span>
+        </summary>
+        <div class="followup-content">
+          ${stale.length ? `
+            <p class="followup-intro">
+              Pending records with no saved update for at least 24 hours.
+            </p>
+            ${stale.map(({ item, age }) => `
+              <div class="followup-item">
+                <strong>${escapeHtml(item.contactName || "Unknown contact")}</strong>
+                <div>${escapeHtml(item.brand || item.productName || "Unknown product")}</div>
+                <small>
+                  ${escapeHtml(item.productType || "Product type unspecified")}
+                  · ${escapeHtml(formatAge(age))}
+                </small>
+                <small>
+                  Last activity: ${escapeHtml(
+                    new Date(getLastActivity(item)).toLocaleString()
+                  )}
+                </small>
+              </div>
+            `).join("")}
+          ` : `
+            <p class="followup-empty">
+              No pending records have been inactive for 24 hours.
+            </p>
+          `}
         </div>
-      `).join("")}
-      <button type="button" class="secondary full followup-open"
-        data-followup-open>
-        Review in Tracking
-      </button>`;
+      </details>`;
   }
 
   function renderDashboardAlert() {
@@ -208,10 +234,18 @@
 
     let panel = document.getElementById("trackingFollowupAlert");
 
-    if (!panel) {
-      panel = document.createElement("div");
-      panel.id = "trackingFollowupAlert";
-      panel.className = "followup-panel";
+    
+  if (!panel) {
+    panel = document.createElement("div");
+    panel.id = "trackingFollowupAlert";
+    panel.className = "followup-panel";
+  }
+
+  // Always keep Pending Follow-Ups at the bottom of Tracking.
+  tracking.appendChild(panel);
+
+  panel.innerHTML = alertMarkup();
+}
 
       const heading = tracking.querySelector(".sectionhead");
       if (heading) {
