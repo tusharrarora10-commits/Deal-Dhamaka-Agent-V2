@@ -52,11 +52,14 @@
 
     return getShares()
       .filter(item => !item.ordered)
-      .map(item => ({
-        item,
-        lastActivity: getLastActivity(item),
-        age: now - getLastActivity(item)
-      }))
+      .map(item => {
+        const lastActivity = getLastActivity(item);
+        return {
+          item,
+          lastActivity,
+          age: now - lastActivity
+        };
+      })
       .filter(entry =>
         entry.lastActivity > 0 && entry.age >= DAY_MS
       )
@@ -85,17 +88,13 @@
     style.textContent = `
       .followup-panel {
         margin: 14px 0;
-        padding: 16px;
+        padding: 0;
         border: 1px solid #f2c879;
         border-radius: 16px;
         background: #fffaf0;
         color: #422006;
+        overflow: hidden;
       }
-      .followup-panel h3 {
-        margin: 0 0 6px;
-        font-size: 18px;
-      }
-      
       .followup-details > summary {
         cursor: pointer;
         list-style: none;
@@ -119,7 +118,6 @@
       .followup-content {
         padding: 0 16px 16px;
       }
-
       .followup-intro {
         margin: 0 0 10px;
         font-size: 13px;
@@ -142,25 +140,20 @@
       .followup-count {
         display: inline-block;
         padding: 4px 9px;
-        margin-bottom: 8px;
         border-radius: 20px;
         background: #fef3c7;
         font-size: 12px;
         font-weight: 800;
+        white-space: nowrap;
       }
       .followup-empty {
         padding: 8px 0 2px;
         font-size: 14px;
         color: #166534;
       }
-      .followup-open {
-        margin-top: 8px;
-        min-height: 42px;
-      }
     `;
     document.head.appendChild(style);
   }
-
 
   function alertMarkup() {
     const stale = getStalePending();
@@ -234,27 +227,14 @@
 
     let panel = document.getElementById("trackingFollowupAlert");
 
-    
-  if (!panel) {
-    panel = document.createElement("div");
-    panel.id = "trackingFollowupAlert";
-    panel.className = "followup-panel";
-  }
-
-  // Always keep Pending Follow-Ups at the bottom of Tracking.
-  tracking.appendChild(panel);
-
-  panel.innerHTML = alertMarkup();
-}
-
-      const heading = tracking.querySelector(".sectionhead");
-      if (heading) {
-        heading.insertAdjacentElement("afterend", panel);
-      } else {
-        tracking.prepend(panel);
-      }
+    if (!panel) {
+      panel = document.createElement("div");
+      panel.id = "trackingFollowupAlert";
+      panel.className = "followup-panel";
     }
 
+    // Always place Pending Follow-Ups at the bottom of Tracking.
+    tracking.appendChild(panel);
     panel.innerHTML = alertMarkup();
   }
 
@@ -292,8 +272,6 @@
         const id = String(item.id);
         const previous = previousShares.get(id);
 
-        // Refresh the timestamp only when an existing record's
-        // saved fields have changed. New records retain their own time.
         if (previous !== undefined &&
             previous !== comparableShare(item)) {
           item.lastUpdatedAt = now;
@@ -309,30 +287,22 @@
     save = wrappedSave;
   }
 
-  document.addEventListener("click", event => {
-    if (!event.target.closest("[data-followup-open]")) return;
-
-    if (typeof showPage === "function") {
-      showPage("tracking");
-      setTimeout(() => {
-        document.getElementById("trackingFollowupAlert")
-          ?.scrollIntoView({ behavior: "smooth", block: "start" });
-      }, 50);
-    }
-  });
-
-  // Existing records are the baseline: do not mark them as newly updated
-  // simply because the app was opened.
+  // Existing records are the baseline; opening the app does not
+  // count as updating a record.
   rememberShares();
   attachSaveRefresh();
   attachTrackingRefresh();
   renderAlerts();
 
   document.querySelectorAll('.tabbar button[data-page="dashboard"]')
-    .forEach(button => button.addEventListener("click", renderDashboardAlert));
+    .forEach(button =>
+      button.addEventListener("click", renderDashboardAlert)
+    );
 
   document.querySelectorAll('.tabbar button[data-page="tracking"]')
-    .forEach(button => button.addEventListener("click", renderTrackingAlert));
+    .forEach(button =>
+      button.addEventListener("click", renderTrackingAlert)
+    );
 
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden) renderAlerts();
