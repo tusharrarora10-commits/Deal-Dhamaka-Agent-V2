@@ -613,6 +613,44 @@ $("productSearch").oninput = renderProducts;
 const quantityStyle = document.createElement("style");
 
 quantityStyle.textContent = `
+  .tracking-filter-search {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    margin: 0 0 8px;
+    padding: 10px 12px;
+    border: 1px solid var(--border, #d0d5dd);
+    border-radius: 8px;
+    font: inherit;
+    background: var(--surface, #fff);
+    color: inherit;
+  }
+
+  .tracking-filter-options {
+    max-height: 240px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .filter-option[hidden] {
+    display: none !important;
+  }
+
+  .tracking-filter-no-results {
+    margin: 8px 0;
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  .recipient-count-total {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 0 2px;
+    margin-top: 8px;
+    border-top: 2px solid var(--border, #dedede);
+    font-weight: 800;
+  }
   .quantity-entry-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1213,6 +1251,14 @@ function renderStatusTable(
 ========================= */
 
 function renderTracking() {
+  
+const trackingFilterSearch = {
+  filterBrand: "",
+  filterType: "",
+  filterRecipient: ""
+};
+
+function renderTracking() {
   const brands = [...new Set(
     state.shares.map(x => x.brand).filter(Boolean)
   )].sort();
@@ -1225,28 +1271,96 @@ function renderTracking() {
     state.shares.map(x => x.contactName).filter(Boolean)
   )].sort();
 
-  const getSelectedValues = id =>
-    [...$(id).querySelectorAll('input[type="checkbox"]:checked')]
-      .map(input => input.value);
+  const getSelectedValues = id => {
+    const container = $(id);
+    if (!container) return [];
+
+    return [...container.querySelectorAll(
+      'input[type="checkbox"]:checked'
+    )].map(input => input.value);
+  };
 
   const setOptions = (id, values, selectedValues) => {
     const container = $(id);
+    if (!container) return;
+
+    const searchText = trackingFilterSearch[id] || "";
+    const label = id === "filterBrand"
+      ? "brands"
+      : id === "filterType"
+        ? "product types"
+        : "recipients";
 
     if (!values.length) {
-      container.innerHTML = '<p class="hint">No options available.</p>';
+      container.innerHTML =
+        '<p class="hint">No options available.</p>';
       return;
     }
 
-    container.innerHTML = values.map(value => `
-      <label class="filter-option">
-        <input
-          type="checkbox"
-          value="${esc(value)}"
-          ${selectedValues.includes(value) ? "checked" : ""}
-        >
-        <span>${esc(value)}</span>
-      </label>
-    `).join("");
+    container.innerHTML = `
+      <input
+        type="search"
+        class="tracking-filter-search"
+        data-filter-search="${id}"
+        placeholder="Search ${label}..."
+        aria-label="Search ${label}"
+        value="${esc(searchText)}"
+        autocomplete="off"
+      >
+
+      <div class="tracking-filter-options">
+        ${values.map(value => `
+          <label
+            class="filter-option"
+            data-filter-label="${esc(value.toLowerCase())}"
+          >
+            <input
+              type="checkbox"
+              value="${esc(value)}"
+              ${selectedValues.includes(value) ? "checked" : ""}
+            >
+            <span>${esc(value)}</span>
+          </label>
+        `).join("")}
+      </div>
+
+      <p class="tracking-filter-no-results" hidden>
+        No matching options.
+      </p>
+    `;
+
+    const searchInput = container.querySelector(
+      "[data-filter-search]"
+    );
+
+    const options = [
+      ...container.querySelectorAll(".filter-option")
+    ];
+
+    const noResults = container.querySelector(
+      ".tracking-filter-no-results"
+    );
+
+    const applySearch = () => {
+      const query = searchInput.value.trim().toLowerCase();
+      trackingFilterSearch[id] = searchInput.value;
+
+      let visibleCount = 0;
+
+      options.forEach(option => {
+        const matches =
+          option.dataset.filterLabel.includes(query);
+
+        option.hidden = !matches;
+
+        if (matches) visibleCount++;
+      });
+
+      noResults.hidden = visibleCount > 0;
+    };
+
+    searchInput.addEventListener("input", applySearch);
+    applySearch();
   };
 
   const oldBrands = getSelectedValues("filterBrand");
@@ -1265,9 +1379,23 @@ function renderTracking() {
         : values.length + " selected";
   };
 
-  updateSummary("brandFilterSummary", oldBrands, "All Brands");
-  updateSummary("typeFilterSummary", oldTypes, "All Product Types");
-  updateSummary("recipientFilterSummary", oldRecipients, "All Recipients");
+  updateSummary(
+    "brandFilterSummary",
+    oldBrands,
+    "All Brands"
+  );
+
+  updateSummary(
+    "typeFilterSummary",
+    oldTypes,
+    "All Product Types"
+  );
+
+  updateSummary(
+    "recipientFilterSummary",
+    oldRecipients,
+    "All Recipients"
+  );
 
   $("trackTotal").textContent = state.shares.length;
   $("trackBrands").textContent = brands.length;
@@ -1279,19 +1407,26 @@ function renderTracking() {
   const selectedRecipients = getSelectedValues("filterRecipient");
 
   const from = $("filterFrom").value
-    ? new Date($("filterFrom").value + "T00:00:00").getTime()
+    ? new Date(
+        $("filterFrom").value + "T00:00:00"
+      ).getTime()
     : 0;
 
   const to = $("filterTo").value
-    ? new Date($("filterTo").value + "T23:59:59.999").getTime()
+    ? new Date(
+        $("filterTo").value + "T23:59:59.999"
+      ).getTime()
     : Infinity;
 
   const orderStatus = $("filterOrderStatus").value;
 
   const a = state.shares.filter(x =>
-    (!selectedBrands.length || selectedBrands.includes(x.brand)) &&
-    (!selectedTypes.length || selectedTypes.includes(x.productType)) &&
-    (!selectedRecipients.length || selectedRecipients.includes(x.contactName)) &&
+    (!selectedBrands.length ||
+      selectedBrands.includes(x.brand)) &&
+    (!selectedTypes.length ||
+      selectedTypes.includes(x.productType)) &&
+    (!selectedRecipients.length ||
+      selectedRecipients.includes(x.contactName)) &&
     Number(x.time || 0) >= from &&
     Number(x.time || 0) <= to &&
     (
@@ -1330,25 +1465,58 @@ function renderTracking() {
     countBy(a, x => x.contactName)
   );
 
+  // Add the total AFTER reportRows renders the recipient list.
+  const recipientTotal = $("recipientCounts");
+
+  if (recipientTotal) {
+    const totalRow = document.createElement("div");
+    totalRow.className = "recipient-count-total";
+
+    const totalLabel = document.createElement("span");
+    totalLabel.textContent = "Total Shares";
+
+    const totalValue = document.createElement("strong");
+    totalValue.textContent = String(a.length);
+
+    totalRow.append(totalLabel, totalValue);
+    recipientTotal.appendChild(totalRow);
+  }
+
   const ordered = a.filter(x => x.ordered).length;
   const pending = a.length - ordered;
 
   $("trackingDetails").innerHTML = `
     <div class="card order-summary">
-      <p><b>Share attempts / allocated units:</b> ${a.length}</p>
-      <p><b>Contacts marked ordered:</b> ${ordered}</p>
-      <p><b>Not marked ordered:</b> ${pending}</p>
+      <p>
+        <b>Share attempts / allocated units:</b>
+        ${a.length}
+      </p>
+      <p>
+        <b>Contacts marked ordered:</b> ${ordered}
+      </p>
+      <p>
+        <b>Not marked ordered:</b> ${pending}
+      </p>
     </div>
   ` + (a.length
     ? [...a]
-      .sort((x, y) => Number(y.time || 0) - Number(x.time || 0))
+      .sort(
+        (x, y) => Number(y.time || 0) - Number(x.time || 0)
+      )
       .map(x => `
         <div class="detail-card">
-          <h4>${esc(x.contactName)} ← ${esc(x.brand || x.productName)}</h4>
+          <h4>
+            ${esc(x.contactName)} ←
+            ${esc(x.brand || x.productName)}
+          </h4>
 
           <p>
-            <span class="badge">${esc(x.brand || "No brand")}</span>
-            <span class="badge">${esc(x.productType || "No type")}</span>
+            <span class="badge">
+              ${esc(x.brand || "No brand")}
+            </span>
+            <span class="badge">
+              ${esc(x.productType || "No type")}
+            </span>
           </p>
 
           <p>
@@ -1356,13 +1524,21 @@ function renderTracking() {
             · ${esc(x.phone)}
           </p>
 
-          <p>${esc(x.status || "Share initiated; delivery not confirmed")}</p>
+          <p>
+            ${esc(
+              x.status ||
+              "Share initiated; delivery not confirmed"
+            )}
+          </p>
 
           <label class="ordered-toggle">
             <input
               type="checkbox"
               ${x.ordered ? "checked" : ""}
-              onchange="toggleOrdered('${esc(x.id)}',this.checked)"
+              onchange="toggleOrdered(
+                '${esc(x.id)}',
+                this.checked
+              )"
             >
             Product Ordered
           </label>
@@ -1371,21 +1547,25 @@ function renderTracking() {
     : '<div class="report-empty">No records match these filters.</div>');
 }
 
-["filterBrand", "filterType", "filterRecipient"].forEach(id =>
-  $(id).addEventListener("change", renderTracking)
-);
+["filterBrand", "filterType", "filterRecipient"].forEach(id => {
+  $(id).addEventListener("change", renderTracking);
+});
 
-["filterFrom", "filterTo", "filterOrderStatus"].forEach(id =>
-  $(id).addEventListener("change", renderTracking)
-);
+["filterFrom", "filterTo", "filterOrderStatus"].forEach(id => {
+  $(id).addEventListener("change", renderTracking);
+});
 
 $("refreshTracking").onclick = renderTracking;
 
 $("clearFilters").onclick = () => {
   ["filterBrand", "filterType", "filterRecipient"].forEach(id => {
-    $(id).querySelectorAll('input[type="checkbox"]').forEach(input => {
-      input.checked = false;
-    });
+    $(id)
+      .querySelectorAll('input[type="checkbox"]')
+      .forEach(input => {
+        input.checked = false;
+      });
+
+    trackingFilterSearch[id] = "";
   });
 
   $("filterFrom").value = "";
@@ -1394,6 +1574,7 @@ $("clearFilters").onclick = () => {
 
   renderTracking();
 };
+
 
 /* =========================
    CSV AND BACKUP EXPORT
