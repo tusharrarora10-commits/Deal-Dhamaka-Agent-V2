@@ -32,15 +32,18 @@ function load() {
       shares: Array.isArray(x.shares) ? x.shares : []
     };
 
-    state.products = state.products.map(p => ({
-      ...p,
-      allottedQty:
-        Number.isFinite(Number(p.allottedQty)) &&
-        Number(p.allottedQty) >= 0
-          ? Number(p.allottedQty)
-          : 0,
-      quantityUnit: p.quantityUnit || "units"
-    }));
+    
+state.products = state.products.map(p => ({
+  ...p,
+  allottedQty:
+    Number.isFinite(Number(p.allottedQty)) &&
+    Number(p.allottedQty) >= 0
+      ? Number(p.allottedQty)
+      : 0,
+  quantityUnit: p.quantityUnit || "units",
+  dealStatus: p.dealStatus === "closed" ? "closed" : "active"
+}));
+
 
     state.shares = state.shares.map(s => {
       const record = { ...s };
@@ -508,100 +511,184 @@ function renderContacts() {
   bindItemActions("contacts");
 }
 
+
+let productDealFilter = "active";
+
+function ensureProductDealFilter() {
+  if (document.getElementById("productDealFilter")) return;
+
+  const search = $("productSearch");
+  if (!search || !search.parentNode) return;
+
+  const panel = document.createElement("div");
+  panel.id = "productDealFilter";
+  panel.className = "card";
+  panel.style.margin = "12px 0";
+
+  panel.innerHTML = `
+    <h3 style="margin-top:0">Deal Status</h3>
+
+    <div style="display:flex;gap:14px;flex-wrap:wrap">
+      <label>
+        <input type="radio"
+          name="productDealStatus"
+          value="active" checked>
+        Active Deals
+      </label>
+
+      <label>
+        <input type="radio"
+          name="productDealStatus"
+          value="closed">
+        Closed Deals
+      </label>
+
+      <label>
+        <input type="radio"
+          name="productDealStatus"
+          value="all">
+        All Deals
+      </label>
+    </div>
+  `;
+
+  search.insertAdjacentElement("afterend", panel);
+
+  panel.querySelectorAll(
+    'input[name="productDealStatus"]'
+  ).forEach(radio => {
+    radio.addEventListener("change", () => {
+      productDealFilter = radio.value;
+      renderProducts();
+    });
+  });
+}
+
 function renderProducts() {
+  ensureProductDealFilter();
+
   const q = $("productSearch").value.toLowerCase();
 
-  const a = state.products.filter(x =>
-    (x.name + " " + x.brand + " " + x.productType + " " + x.platform + " " + x.link)
-      .toLowerCase()
-      .includes(q)
-  );
+  const products = state.products.filter(product => {
+    const text = (
+      product.name + " " +
+      product.brand + " " +
+      product.productType + " " +
+      product.platform + " " +
+      product.link
+    ).toLowerCase();
 
-  $("productsList").innerHTML = a.length
-    ? a.map(x => {
-      const t = productTotals(x.id);
+    const matchesSearch = text.includes(q);
+    const status = product.dealStatus === "closed"
+      ? "closed"
+      : "active";
 
-      return `
-        <div class="item">
-          <div>
-            <h3>${esc(x.name)}</h3>
+    const matchesStatus =
+      productDealFilter === "all" ||
+      productDealFilter === status;
 
-            <p>
-              <b>${esc(x.brand || "No brand")}</b>
-              · ${esc(x.productType || "No type")}
-            </p>
+    return matchesSearch && matchesStatus;
+  });
 
-            <p>
-              ${esc(x.platform)}
-              ${x.price ? " · ₹" + esc(x.price) : ""}
-            </p>
+  $("productsList").innerHTML = products.length
+    ? products.map(product => {
+        const t = productTotals(product.id);
+        const closed = product.dealStatus === "closed";
 
-            <p>${esc(x.link)}</p>
+        return `
+          <div class="item">
+            <div>
+              <h3>${esc(product.name)}</h3>
 
-            <p>
-              <b>Allotted:</b> ${formatQuantity(t.allotted)} ${esc(t.unit)}
-              · <b>Shared:</b> ${t.shared}
-              · <b>Ordered:</b> ${t.ordered}
-            </p>
+              <p>
+                <b>${esc(product.brand || "No brand")}</b>
+                · ${esc(product.productType || "No type")}
+              </p>
 
-            <p>
-              <b>Pending Allotted:</b> ${formatQuantity(t.pendingAllotted)}
-              · <b>Pending Ordered:</b> ${t.pendingOrdered}
-              · <b>Available:</b> ${formatQuantity(t.available)} ${esc(t.unit)}
-            </p>
+              <p>
+                ${esc(product.platform)}
+                ${product.price
+                  ? " · ₹" + esc(product.price)
+                  : ""}
+              </p>
 
-            ${t.shortage
-              ? `<p class="hint">Over-allocated by ${formatQuantity(t.shortage)} unit(s).</p>`
-              : ""}
+              <p>${esc(product.link)}</p>
+
+              <p>
+                <b>Allotted:</b>
+                ${formatQuantity(t.allotted)} ${esc(t.unit)}
+                · <b>Shared:</b> ${t.shared}
+                · <b>Ordered:</b> ${t.ordered}
+              </p>
+
+              <p>
+                <b>Pending Allotted:</b>
+                ${formatQuantity(t.pendingAllotted)}
+                · <b>Pending Ordered:</b>
+                ${t.pendingOrdered}
+                · <b>Available:</b>
+                ${formatQuantity(t.available)} ${esc(t.unit)}
+              </p>
+
+              ${t.shortage
+                ? `<p class="hint">
+                    Over-allocated by
+                    ${formatQuantity(t.shortage)} unit(s).
+                  </p>`
+                : ""}
+
+              <p>
+                <b>Status:</b>
+                ${closed ? "Closed Deal" : "Active Deal"}
+              </p>
+            </div>
+
+            <div class="actions">
+              <button class="mini"
+                data-edit="${product.id}">Edit</button>
+
+              <button class="mini"
+                data-delete="${product.id}">Delete</button>
+
+              <button class="mini"
+                data-deal-status="${product.id}"
+                data-next-status="${closed ? "active" : "closed"}">
+                ${closed ? "Reopen Deal" : "Close Deal"}
+              </button>
+            </div>
           </div>
-
-          <div class="actions">
-            <button class="mini" data-edit="${x.id}">Edit</button>
-            <button class="mini" data-delete="${x.id}">Delete</button>
-          </div>
-        </div>
-      `;
-    }).join("")
-    : '<div class="empty">No products yet. Add one or import a CSV.</div>';
+        `;
+      }).join("")
+    : state.products.length
+      ? '<div class="empty">No products match this status and search.</div>'
+      : '<div class="empty">No products yet. Add one or import a CSV.</div>';
 
   bindItemActions("products");
+
+  document.querySelectorAll("[data-deal-status]")
+    .forEach(button => {
+      button.onclick = () => {
+        const product = state.products.find(
+          p => String(p.id) === button.dataset.dealStatus
+        );
+
+        if (!product) return;
+
+        const nextStatus = button.dataset.nextStatus;
+
+        const message = nextStatus === "closed"
+          ? "Mark this deal as Closed? It will be hidden from Active Deals."
+          : "Reopen this deal as Active?";
+
+        if (!confirm(message)) return;
+
+        product.dealStatus = nextStatus;
+        save();
+        renderProducts();
+      };
+    });
 }
 
-function bindItemActions(type) {
-  document.querySelectorAll("[data-edit]").forEach(b => {
-    b.onclick = () => {
-      const arr = type === "contacts" ? state.contacts : state.products;
-      const x = arr.find(v => String(v.id) === b.dataset.edit);
-
-      if (x) {
-        if (type === "contacts") addContact(x);
-        else addProduct(x);
-      }
-    };
-  });
-
-  document.querySelectorAll("[data-delete]").forEach(b => {
-    b.onclick = () => {
-      if (!confirm("Delete this item? Existing share history will be retained.")) {
-        return;
-      }
-
-      if (type === "contacts") {
-        state.contacts = state.contacts.filter(
-          x => String(x.id) !== b.dataset.delete
-        );
-      } else {
-        state.products = state.products.filter(
-          x => String(x.id) !== b.dataset.delete
-        );
-      }
-
-      save();
-      renderContacts();
-      renderProducts();
-    };
-  });
-}
 
 $("contactSearch").oninput = renderContacts;
 $("productSearch").oninput = renderProducts;
