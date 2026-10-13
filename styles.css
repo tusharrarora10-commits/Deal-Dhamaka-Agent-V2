@@ -47,7 +47,13 @@ textarea{resize:vertical;line-height:1.45}
 .filelabel{display:block;background:#e5e7eb;border-radius:12px;padding:14px;text-align:center;margin:10px 0}
 .filelabel input{display:block;margin:10px auto 0}
 .tabbar{position:fixed;bottom:0;left:0;right:0;z-index:10;background:#fff;border-top:1px solid #e5e7eb;display:flex;justify-content:space-around;padding:8px 2px calc(8px + env(safe-area-inset-bottom));overflow-x:auto}
+pointer-events:auto;
+z-index:1000;
+isolation:isolate;
 .tabbar button{border:0;background:transparent;color:#6b7280;font-weight:650;font-size:11px;min-width:49px;display:flex;flex-direction:column;align-items:center;gap:5px;padding:6px 3px}
+pointer-events:auto;
+position:relative;
+touch-action:manipulation;
 .tabbar button span{white-space:nowrap}
 .tabbar button.active{color:var(--ink)}
 .tabbar button:first-line{font-size:20px}
