@@ -112,10 +112,31 @@
   function readData() {
     try {
       const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+      const products = Array.isArray(raw.products) ? raw.products : [];
+      const storedShares = Array.isArray(raw.shares) ? raw.shares : [];
+      const shares = storedShares.map(record => {
+        const product = record.productId == null
+          ? products.find(p =>
+              String(p.name || p.brand || "").trim() ===
+                String(record.productName || record.brand || "").trim() &&
+              String(p.productType || "").trim() ===
+                String(record.productType || "").trim()
+            )
+          : products.find(p => String(p.id) === String(record.productId));
+
+        if (record.productId != null && !product) return null;
+        return product ? {
+          ...record,
+          brand: product.brand || product.name || "",
+          productType: product.productType || "",
+          productName: product.name || product.brand || ""
+        } : record;
+      }).filter(Boolean);
+
       return {
         contacts: Array.isArray(raw.contacts) ? raw.contacts : [],
-        products: Array.isArray(raw.products) ? raw.products : [],
-        shares: Array.isArray(raw.shares) ? raw.shares : []
+        products,
+        shares
       };
     } catch (_) {
       return { contacts: [], products: [], shares: [] };
@@ -412,8 +433,11 @@
       (sum, p) => sum + num(p.allottedQty), 0
     );
     const shared = filtered.length;
+    const allTimeShared = data.shares.length;
     const ordered = filtered.filter(s => !!s.ordered).length;
-    const pendingAllotted = Math.max(0, allotted - shared);
+    const pendingAllotted = Math.max(0, allotted - allTimeShared);
+    const activeDeals = data.products.filter(p => (p.dealStatus || "active") === "active").length;
+    const closedDeals = data.products.filter(p => p.dealStatus === "closed").length;
     const pendingOrdered = Math.max(0, shared - ordered);
     const conversion = shared ? ordered / shared * 100 : 0;
 
@@ -475,10 +499,12 @@
       </div>
 
       <div class="dda-kpis">
+        ${metric("Active Deals", activeDeals, "Products currently active")}
+        ${metric("Closed Deals", closedDeals, "Products marked closed")}
         ${metric("Allotted", fmt(allotted), "Current product allotment")}
-        ${metric("Shared", shared, "Share attempts recorded")}
-        ${metric("Ordered", ordered, "Records marked as ordered")}
-        ${metric("Pending Allotted", fmt(pendingAllotted), "Allotted minus selected-period shares")}
+        ${metric("Shared", shared, "Share attempts in selected period")}
+        ${metric("Ordered", ordered, "Selected-period records marked ordered")}
+        ${metric("Pending Allotted", fmt(pendingAllotted), "Allotted minus all-time share attempts")}
         ${metric("Pending Ordered", pendingOrdered, "Selected-period shares not marked ordered")}
         ${metric("Order Conversion", conversion.toFixed(1) + "%", "Ordered ÷ shares in selected period")}
       </div>

@@ -484,7 +484,25 @@
 
     const contacts = Array.isArray(state.contacts) ? state.contacts : [];
     const products = Array.isArray(state.products) ? state.products : [];
-    const shares = Array.isArray(state.shares) ? state.shares : [];
+    const storedShares = Array.isArray(state.shares) ? state.shares : [];
+    const shares = storedShares.map(record => {
+      const product = record.productId == null
+        ? products.find(p =>
+            String(p.name || p.brand || "").trim() ===
+              String(record.productName || record.brand || "").trim() &&
+            String(p.productType || "").trim() ===
+              String(record.productType || "").trim()
+          )
+        : products.find(p => String(p.id) === String(record.productId));
+
+      if (record.productId != null && !product) return null;
+      return product ? {
+        ...record,
+        brand: product.brand || product.name || "",
+        productType: product.productType || "",
+        productName: product.name || product.brand || ""
+      } : record;
+    }).filter(Boolean);
 
     const periodShares = getPeriodShares(shares);
     const ordered = periodShares.filter(s => !!s.ordered).length;

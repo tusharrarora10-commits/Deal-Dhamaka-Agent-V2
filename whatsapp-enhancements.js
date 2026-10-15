@@ -198,38 +198,95 @@ Sharing this deal with you:
     $("waNewTemplate").onclick = () => editTemplate(null);
   }
 
-  function editTemplate(existing) {
-    const name = prompt("Template name:", existing?.name || "My Template");
-    if (name === null) return;
+  
+function editTemplate(existing) {
+  const panel = $("waTemplatePanel");
+  if (!panel) return;
 
-    if (!name.trim()) {
+  let editor = $("waTemplateEditor");
+
+  if (!editor) {
+    editor = document.createElement("div");
+    editor.id = "waTemplateEditor";
+    editor.className = "card";
+    editor.style.marginTop = "12px";
+
+    editor.innerHTML = `
+      <h3 id="waEditorHeading">Edit Message Template</h3>
+
+      <label for="waTemplateName">Template Name</label>
+      <input
+        id="waTemplateName"
+        type="text"
+        maxlength="100"
+        style="width:100%;box-sizing:border-box;margin:6px 0 12px;padding:10px"
+      >
+
+      <label for="waTemplateMessage">Message Content</label>
+      <textarea
+        id="waTemplateMessage"
+        rows="14"
+        autocapitalize="sentences"
+        spellcheck="true"
+        style="display:block;width:100%;box-sizing:border-box;min-height:280px;margin:6px 0 12px;padding:12px;font:14px/1.6 monospace;white-space:pre-wrap;overflow-wrap:anywhere"
+      ></textarea>
+
+      <p class="hint">
+        Blank lines are preserved. Use placeholders such as
+        {{contactName}}, {{brand}}, {{productName}},
+        {{description}}, {{price}}, {{platform}} and {{link}}.
+      </p>
+
+      <div style="display:flex;gap:8px">
+        <button type="button" class="primary" id="waSaveTemplate">
+          Save Template
+        </button>
+        <button type="button" class="secondary" id="waCancelTemplate">
+          Cancel
+        </button>
+      </div>
+    `;
+
+    panel.insertAdjacentElement("afterend", editor);
+  }
+
+  editor.hidden = false;
+
+  $("waEditorHeading").textContent = existing
+    ? "Edit Message Template"
+    : "Create Message Template";
+
+  $("waTemplateName").value = existing?.name || "My Template";
+
+  $("waTemplateMessage").value = existing?.message ||
+    "Hi {{contactName}} 👋\n\n{{productName}}\n{{description}}\n\n{{link}}";
+
+  $("waSaveTemplate").onclick = () => {
+    const name = $("waTemplateName").value.trim();
+    const message = $("waTemplateMessage").value;
+
+    if (!name) {
       alert("Enter a template name.");
       return;
     }
 
-    const message = prompt(
-      "Enter your message. Use placeholders such as {{contactName}}, {{brand}}, {{productName}}, {{price}}, and {{link}}.",
-      existing?.message ||
-        "Hi {{contactName}} 👋\n\n{{productName}}\n{{description}}\n\n{{link}}"
-    );
-
-    if (message === null) return;
     if (!message.trim()) {
       alert("Template message cannot be empty.");
       return;
     }
 
     if (existing) {
-      existing.name = name.trim();
+      existing.name = name;
       existing.message = message;
       selectedId = existing.id;
     } else {
       const created = {
         id: "custom-" + Date.now() + "-" +
           Math.random().toString(36).slice(2, 7),
-        name: name.trim(),
+        name,
         message
       };
+
       templates.push(created);
       selectedId = created.id;
     }
@@ -237,11 +294,21 @@ Sharing this deal with you:
     saveTemplates();
     renderPanel();
 
+    editor.hidden = true;
+
     const pair = currentPair();
     if (pair && $("message")) {
       $("message").value = buildMessage(pair.contact, pair.product);
     }
-  }
+
+    alert("Template saved successfully.");
+  };
+
+  $("waCancelTemplate").onclick = () => {
+    editor.hidden = true;
+  };
+}
+
 
   function findDuplicates(contact, product) {
     return readData().shares.filter(s =>

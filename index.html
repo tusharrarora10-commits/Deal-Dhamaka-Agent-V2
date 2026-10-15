@@ -69,17 +69,6 @@
   </div>
   <div class="card">
     <div class="selection-head">
-      <h3>Select Contacts</h3>
-      <div>
-        <button class="mini" id="allContacts">All</button>
-        <button class="mini" id="clearContacts">Clear</button>
-      </div>
-    </div>
-    <input id="sendContactSearch" class="search" placeholder="Find contact">
-    <div id="sendContacts" class="checklist"></div>
-  </div>
-  <div class="card">
-    <div class="selection-head">
       <h3>Select Products</h3>
       <div>
         <button class="mini" id="allProducts">All</button>
@@ -88,6 +77,17 @@
     </div>
     <input id="sendProductSearch" class="search" placeholder="Find product">
     <div id="sendProducts" class="checklist"></div>
+  </div>
+  <div class="card">
+    <div class="selection-head">
+      <h3>Select Contacts</h3>
+      <div>
+        <button class="mini" id="allContacts">All</button>
+        <button class="mini" id="clearContacts">Clear</button>
+      </div>
+    </div>
+    <input id="sendContactSearch" class="search" placeholder="Find contact">
+    <div id="sendContacts" class="checklist"></div>
   </div>
   <div class="card">
     <h3>Message Preview</h3>
@@ -106,6 +106,7 @@
     <div><h2>History</h2><p>Share attempts initiated from this app</p></div>
     <button class="danger" id="clearHistory">Clear</button>
   </div>
+  <input id="historySearch" class="search" placeholder="Search recipient name, product or brand" autocomplete="off">
   <div id="historyList"></div>
 </section>
 
@@ -234,11 +235,14 @@
   </div>
 </div>
 
+<!-- Keep app.js first: it owns the existing dealDhamakaAgentV2 local-storage data. -->
 <script src="app.js"></script>
-<script src="product-status.js"></script>
 <script src="whatsapp-enhancements.js"></script>
+<!-- The detailed dashboard renders first; analytics adds KPI/trend/stock/export tools above it. -->
 <script src="dashboard.js"></script>
 <script src="analytics.js"></script>
 <script src="followup.js"></script>
+<script src="undo-redo.js"></script>
+  <script src="recipients-tab.js"></script>
 </body>
 </html>
