@@ -198,9 +198,22 @@ label{font-size:12px;margin:6px 0 2px}
 #productDealFilter input[type=radio]{width:18px;height:18px;margin:0;flex:0 0 auto;}
 @media(min-width:700px){.tabbar{display:flex;justify-content:space-around;}.tabbar button{min-width:55px;width:auto;font-size:11px!important;}.tabbar button span{font-size:11px!important;}}
 
-/* Preserve line breaks in WhatsApp message preview */
-#message {
-  white-space: pre-wrap !important;
-  overflow-wrap: anywhere;
-  line-height: 1.6;
-}
+/* V2 advanced app polish: coherent surfaces, clearer hierarchy and mobile-first controls */
+:root{--ink:#18213b;--muted:#7c879e;--bg:#f5f7fb;--white:#fff;--blue:#4f6bed;--green:#19a974;--red:#df5c64;--line:#e8ecf4}
+body{background:#f5f7fb;color:#18213b;font-size:13px;padding-bottom:84px}
+.topbar{background:#171f3c;color:#fff;padding:13px 16px 12px;box-shadow:0 4px 16px #17213b18}
+.topbar h1{font-size:19px;letter-spacing:-.35px}
+.eyebrow{color:#bfcaff;font-size:9px;letter-spacing:2px}
+.page{max-width:1180px;padding:13px}
+.card,.item{border:1px solid #e8ecf4;box-shadow:0 3px 12px #24365b05;background:#fff}
+.sectionhead h2{letter-spacing:-.5px;color:#202b47}
+.sectionhead p{line-height:1.4}
+.primary{background:#273a72;color:#fff}
+.primary:active,.secondary:active,.whatsapp:active{transform:scale(.99)}
+.secondary{background:#eef1f7;color:#35415c}
+.search,input,select,textarea{border-color:#e0e6f0;box-shadow:none}
+.search:focus,input:focus,select:focus,textarea:focus{outline:2px solid #4f6bed25;border-color:#4f6bed}
+.tabbar{background:#fff;border-top:1px solid #e6eaf2;box-shadow:0 -5px 20px #1c2b4908;backdrop-filter:blur(12px)}
+.tabbar button.active{color:#4f6bed}
+.tabbar button.active span{font-weight:850}
+@media(min-width:700px){.page{padding:22px}.topbar{padding-left:max(18px,calc((100vw - 1180px)/2));padding-right:max(18px,calc((100vw - 1180px)/2))}}

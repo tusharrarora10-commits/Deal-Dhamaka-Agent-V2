@@ -1,685 +1,175 @@
-
-(function () {
+/* Deal Dhamaka Agent V2 — consolidated executive dashboard
+   Uses the existing dealDhamakaAgentV2 data store. No sample/demo figures. */
+(() => {
   "use strict";
-
-  let selectedPeriod = "all";
+  const $ = id => document.getElementById(id);
+  const money = n => new Intl.NumberFormat("en-IN", {style:"currency",currency:"INR",maximumFractionDigits:0}).format(Number(n)||0);
+  const qty = n => new Intl.NumberFormat("en-IN", {maximumFractionDigits:1}).format(Number(n)||0);
+  const escText = v => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  let period = "all";
+  const palette = {blue:"#4f6bed",green:"#19a974",amber:"#f4a340",red:"#df5c64",ink:"#18213b",muted:"#7c879e",line:"#e9edf5"};
 
   const style = document.createElement("style");
   style.textContent = `
-    .advanced-dashboard { margin-top: 18px; }
-    .dashboard-heading {
-      display:flex; align-items:center; justify-content:space-between;
-      gap:10px; flex-wrap:wrap; margin:20px 0 10px;
-    }
-    .dashboard-heading h3 { margin:0; font-size:19px; }
-    .dashboard-subtitle {
-      color:var(--muted); font-size:12px; line-height:1.5;
-      margin:5px 0 12px;
-    }
-    .dashboard-period { width:100%; margin:6px 0 12px; }
-    .dashboard-grid {
-      display:grid; grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:9px; margin:12px 0;
-    }
-    .dashboard-metric {
-      background:#fff; border:1px solid var(--line);
-      border-radius:16px; padding:13px; min-width:0;
-    }
-    .dashboard-metric .metric-label {
-      color:var(--muted); font-size:11px; font-weight:750;
-    }
-    .dashboard-metric .metric-value {
-      display:block; font-size:25px; font-weight:850;
-      margin:7px 0 4px; overflow-wrap:anywhere;
-    }
-    .dashboard-metric .metric-note {
-      color:var(--muted); font-size:11px; line-height:1.4;
-    }
-    .dashboard-actions {
-      display:grid; grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:8px; margin:12px 0 20px;
-    }
-    .dashboard-actions button { width:100%; min-height:43px; }
-    .dashboard-chart-card {
-      background:#fff; border:1px solid var(--line);
-      border-radius:17px; padding:14px; margin:12px 0;
-      overflow:hidden;
-    }
-    .dashboard-chart-card h3 { margin:0 0 5px; font-size:16px; }
-    .dashboard-chart {
-      width:100%; overflow-x:auto; overflow-y:hidden;
-      -webkit-overflow-scrolling:touch;
-    }
-    .dashboard-chart svg { display:block; max-width:100%; height:auto; }
-    .dashboard-legend {
-      display:flex; flex-wrap:wrap; gap:12px;
-      color:var(--muted); font-size:11px; margin:8px 0;
-    }
-    .dashboard-legend span { display:inline-flex; align-items:center; gap:5px; }
-    .dashboard-dot { width:9px; height:9px; border-radius:50%; display:inline-block; }
-    .dashboard-list-item {
-      display:flex; align-items:center; justify-content:space-between;
-      gap:10px; padding:11px 0; border-bottom:1px solid var(--line);
-    }
-    .dashboard-list-item:last-child { border-bottom:0; }
-    .dashboard-list-item strong { display:block; overflow-wrap:anywhere; }
-    .dashboard-list-item small {
-      color:var(--muted); display:block; margin-top:4px; line-height:1.4;
-    }
-    .dashboard-count {
-      background:#eef2ff; border-radius:10px;
-      padding:7px 9px; font-weight:800; white-space:nowrap; font-size:12px;
-    }
-    .dashboard-bar-track {
-      height:7px; background:#e5e7eb; border-radius:9px;
-      overflow:hidden; margin-top:7px;
-    }
-    .dashboard-bar-fill { height:100%; background:var(--blue); border-radius:9px; }
-    .dashboard-empty { color:var(--muted); padding:14px 0; font-size:13px; }
-    .dashboard-table-wrap {
-      overflow-x:auto; width:100%; -webkit-overflow-scrolling:touch;
-    }
-    .dashboard-table {
-      width:100%; min-width:650px; border-collapse:collapse; font-size:12px;
-    }
-    .dashboard-table th,.dashboard-table td {
-      padding:10px 7px; border-bottom:1px solid var(--line);
-      text-align:right; white-space:nowrap;
-    }
-    .dashboard-table th:first-child,.dashboard-table td:first-child {
-      text-align:left; white-space:normal; min-width:125px;
-    }
-    .dashboard-table thead th { color:var(--muted); }
-    .dashboard-table tfoot { font-weight:850; }
-    .dashboard-table tfoot td { border-top:2px solid #999; }
-    .dashboard-warning { color:var(--red); font-size:11px; display:block; }
-    .dashboard-recent-status { font-size:11px; color:var(--muted); margin-top:5px; }
-    .dashboard-insight {
-      padding:12px; border-radius:12px; background:#f3f4f6;
-      font-size:12px; line-height:1.5; margin:10px 0;
-    }
-    @media(min-width:650px) {
-      .dashboard-grid { grid-template-columns:repeat(4,minmax(0,1fr)); }
-      .dashboard-actions { grid-template-columns:repeat(5,minmax(0,1fr)); }
-      .dashboard-period { max-width:260px; }
-      .dashboard-charts-grid {
-        display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px;
-      }
-    }
+  .dashboard-shell{max-width:1180px;margin:0 auto;color:#17213b}
+  .dashboard-welcome{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:20px 19px;border-radius:20px;background:linear-gradient(125deg,#171f3c 0%,#293d73 64%,#4f6bed 100%);color:#fff;box-shadow:0 10px 28px #26365b20}
+  .dashboard-kicker{font-size:9px;font-weight:850;letter-spacing:1.7px;color:#c9d4ff}
+  .dashboard-welcome h2{font-size:24px;line-height:1.1;margin:8px 0 6px;letter-spacing:-.6px}
+  .dashboard-welcome p{font-size:12px;line-height:1.5;color:#e0e7ff;margin:0;max-width:460px}
+  .dashboard-send{background:#fff;color:#25376b;white-space:nowrap;flex-shrink:0}
+  .dashboard-periodbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:13px 1px 12px;color:#7c879e;font-size:11px}
+  .dashboard-periodbar>div{display:flex;align-items:center;gap:7px;font-weight:750}
+  .dashboard-live-dot{width:7px;height:7px;border-radius:50%;background:#19a974;box-shadow:0 0 0 3px #19a9741c}
+  .dashboard-period-control{display:flex;align-items:center;gap:7px;margin:0;font-size:10px;color:#7c879e}
+  .dashboard-period-control select{margin:0;padding:8px 10px;width:auto;min-width:110px;border-radius:10px;border-color:#e2e7f0;font-size:11px;font-weight:750;background:#fff}
+  .dashboard-overview-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+  .dash-kpi{position:relative;overflow:hidden;min-width:0;background:#fff;border:1px solid #e8ecf4;border-radius:16px;padding:13px;box-shadow:0 3px 10px #24365b05}
+  .dash-kpi:after{content:"";position:absolute;right:-18px;top:-20px;width:66px;height:66px;border-radius:50%;background:var(--tint,#eef1ff)}
+  .dash-kpi-head{display:flex;align-items:center;gap:7px;color:#7c879e;font-size:10px;font-weight:800;position:relative;z-index:1}
+  .dash-kpi-icon{width:25px;height:25px;border-radius:8px;display:grid;place-items:center;background:var(--tint,#eef1ff);color:var(--tone,#4f6bed);font-size:14px}
+  .dash-kpi-value{display:block;position:relative;z-index:1;font-size:clamp(19px,5vw,27px);letter-spacing:-.7px;line-height:1.2;font-weight:900;margin:11px 0 5px;color:#17213b;overflow-wrap:anywhere}
+  .dash-kpi-note{position:relative;z-index:1;color:#8a94a8;font-size:10px;line-height:1.4}
+  .dash-kpi-note strong{color:#53617b}
+  .dash-section{background:#fff;border:1px solid #e8ecf4;border-radius:17px;padding:14px;margin-top:11px;min-width:0;box-shadow:0 3px 12px #24365b05}
+  .dash-section-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:10px}
+  .dash-section-head h3{margin:0;font-size:14px;color:#202b47;letter-spacing:-.2px}
+  .dash-section-head p{margin:4px 0 0;color:#8a94a8;font-size:10px;line-height:1.4}
+  .dash-tag{font-size:9px;font-weight:850;border-radius:20px;padding:5px 7px;background:#f1f4fa;color:#68758d;white-space:nowrap}
+  .dash-chart{width:100%;display:block;overflow:visible}
+  .dash-legend{display:flex;gap:13px;flex-wrap:wrap;font-size:10px;color:#7c879e;margin-top:7px}
+  .dash-legend span{display:inline-flex;align-items:center;gap:5px}.dash-legend i{display:inline-block;width:8px;height:8px;border-radius:3px}
+  .dash-insights{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .dash-insight{border-radius:13px;padding:11px;background:#f7f8fc;min-width:0}
+  .dash-insight span{display:block;font-size:10px;color:#7c879e;font-weight:750}
+  .dash-insight strong{display:block;font-size:21px;margin:5px 0;color:#202b47;overflow-wrap:anywhere}
+  .dash-insight small{font-size:10px;color:#8a94a8;line-height:1.35;display:block}
+  .dash-rate-track{height:9px;background:#edf0f7;border-radius:20px;overflow:hidden;margin:12px 0 7px}.dash-rate-fill{height:100%;background:linear-gradient(90deg,#19a974,#7bd8ae);border-radius:20px;min-width:0}
+  .dash-action-list,.dash-rank-list,.dash-activity-list{display:grid;gap:7px}
+  .dash-alert{display:flex;align-items:flex-start;gap:10px;padding:10px;border:1px solid #edf0f6;border-radius:12px;background:#fff}
+  .dash-alert-icon{width:29px;height:29px;display:grid;place-items:center;border-radius:9px;background:var(--alertbg,#fff3e3);color:var(--alerttone,#bb771a);flex:0 0 auto;font-size:14px}
+  .dash-alert-body{flex:1;min-width:0}.dash-alert-body strong{display:block;font-size:11px;color:#26324e}.dash-alert-body small{display:block;color:#8993a6;font-size:10px;line-height:1.45;margin-top:3px}
+  .dash-alert button{border:0;background:#f1f4fb;color:#445579;border-radius:8px;padding:7px 9px;font-size:10px;font-weight:800;white-space:nowrap}
+  .dash-rank{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center}
+  .dash-rank-main{min-width:0}.dash-rank-title{display:flex;justify-content:space-between;gap:8px;font-size:10px;font-weight:750;color:#35415c}.dash-rank-title span:first-child{overflow-wrap:anywhere}.dash-rank-title span:last-child{white-space:nowrap;color:#6f7b92}
+  .dash-rank-track{height:6px;background:#eef1f7;border-radius:10px;overflow:hidden;margin-top:6px}.dash-rank-fill{height:100%;border-radius:10px;background:linear-gradient(90deg,#4f6bed,#8ca0ff)}
+  .dash-activity{display:flex;gap:9px;align-items:flex-start;padding:9px 0;border-bottom:1px solid #f0f2f7}.dash-activity:last-child{border-bottom:0}.dash-activity-dot{width:8px;height:8px;border-radius:50%;background:#4f6bed;margin-top:4px;flex:0 0 auto}.dash-activity-main{flex:1;min-width:0}.dash-activity-main strong{display:block;font-size:11px;overflow-wrap:anywhere;color:#26324e}.dash-activity-main small{display:block;color:#8993a6;font-size:10px;margin-top:3px;line-height:1.4}.dash-status{font-size:9px;font-weight:850;border-radius:20px;padding:5px 7px;white-space:nowrap}.dash-status.ordered{background:#e6f8ef;color:#168355}.dash-status.pending{background:#fff3df;color:#a66b12}
+  .dash-empty{padding:15px 4px;color:#8a94a8;font-size:11px;text-align:center;line-height:1.5}
+  .dashboard-data-shortcuts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:11px}.dashboard-data-shortcuts button{display:grid;grid-template-columns:28px minmax(0,1fr);grid-template-rows:auto auto;align-items:center;text-align:left;column-gap:8px;border:1px solid #e8ecf4;background:#fff;border-radius:13px;padding:11px;min-width:0}.dashboard-data-shortcuts button>span{grid-row:1/3;display:grid;place-items:center;background:#eef1ff;color:#4f6bed;width:28px;height:28px;border-radius:9px;font-size:15px}.dashboard-data-shortcuts b{font-size:11px;color:#2b3651}.dashboard-data-shortcuts small{font-size:9px;color:#8a94a8;margin-top:3px}
+  .dashboard-hidden-stats{display:none!important}
+  @media(min-width:650px){.dashboard-welcome{padding:25px 27px}.dashboard-welcome h2{font-size:30px}.dashboard-welcome p{font-size:13px}.dashboard-overview-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.dash-kpi{padding:16px}.dash-section{padding:18px;margin-top:13px}.dash-charts-grid{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(280px,1fr);gap:13px}.dash-lower-grid{display:grid;grid-template-columns:1fr 1fr;gap:13px}.dashboard-data-shortcuts{grid-template-columns:repeat(4,minmax(0,1fr))}.dash-insights{grid-template-columns:repeat(4,minmax(0,1fr))}}
   `;
   document.head.appendChild(style);
 
-  const moneylessNumber = value => {
-    const n = Number(value) || 0;
-    return Number.isInteger(n) ? String(n) : String(Number(n.toFixed(2)));
-  };
-
-  function escText(value) {
-    if (typeof esc === "function") return esc(value);
-    return String(value ?? "").replace(/[&<>"']/g, c => ({
-      "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"
-    }[c]));
-  }
-
-  function safeQty(value) {
-    const n = Number(value);
-    return Number.isFinite(n) && n > 0 ? n : 0;
-  }
-
-  function getPeriodShares(shares) {
-    const now = new Date();
-    let start = 0;
-
-    if (selectedPeriod === "today") {
-      start = new Date(
-        now.getFullYear(), now.getMonth(), now.getDate()
-      ).getTime();
-    } else if (selectedPeriod === "7days") {
-      start = now.getTime() - 7 * 24 * 60 * 60 * 1000;
-    } else if (selectedPeriod === "30days") {
-      start = now.getTime() - 30 * 24 * 60 * 60 * 1000;
-    }
-
-    return shares.filter(item => {
-      const time = Number(item.time);
-      return Number.isFinite(time) && time > 0 && time >= start && time <= now.getTime();
-    });
-  }
-
-  function countBy(items, getKey) {
-    const counts = new Map();
-
-    items.forEach(item => {
-      const key = String(getKey(item) || "Unspecified").trim() || "Unspecified";
-      counts.set(key, (counts.get(key) || 0) + 1);
-    });
-
-    return [...counts.entries()].sort(
-      (a, b) => b[1] - a[1] || a[0].localeCompare(b[0])
-    );
-  }
-
-  function productStatus(products, shares, dimension) {
-    const groups = new Map();
-
-    products.forEach(p => {
-      const brand = String(p.brand || p.name || "Unspecified").trim() || "Unspecified";
-      const type = String(p.productType || "Unspecified").trim() || "Unspecified";
-      const label = dimension === "brand" ? brand : type;
-
-      if (!groups.has(label)) {
-        groups.set(label, { allotted:0, shared:0, ordered:0 });
-      }
-
-      groups.get(label).allotted += safeQty(p.allottedQty);
-    });
-
-    shares.forEach(s => {
-      const label = String(
-        dimension === "brand"
-          ? (s.brand || s.productName || "Unspecified")
-          : (s.productType || "Unspecified")
-      ).trim() || "Unspecified";
-
-      if (!groups.has(label)) {
-        groups.set(label, { allotted:0, shared:0, ordered:0 });
-      }
-
-      const row = groups.get(label);
-      row.shared++;
-      if (s.ordered) row.ordered++;
-    });
-
-    return [...groups.entries()].map(([label, v]) => ({
-      label,
-      ...v,
-      pendingAllotted: Math.max(0, v.allotted - v.shared),
-      pendingOrdered: Math.max(0, v.shared - v.ordered),
-      overAllocated: Math.max(0, v.shared - v.allotted)
-    })).sort((a, b) =>
-      b.shared - a.shared || a.label.localeCompare(b.label)
-    );
-  }
-
-  function metric(label, value, note) {
-    return `
-      <div class="dashboard-metric">
-        <span class="metric-label">${escText(label)}</span>
-        <strong class="metric-value">${escText(value)}</strong>
-        <span class="metric-note">${escText(note)}</span>
-      </div>`;
-  }
-
-  function listMarkup(rows, emptyText, maxItems = 8) {
-    if (!rows.length) {
-      return `<div class="dashboard-empty">${escText(emptyText)}</div>`;
-    }
-
-    const max = Math.max(...rows.map(row => row[1]), 1);
-
-    return rows.slice(0, maxItems).map(([name, count], i) => `
-      <div class="dashboard-list-item">
-        <div style="flex:1;min-width:0">
-          <strong>${i + 1}. ${escText(name)}</strong>
-          <div class="dashboard-bar-track">
-            <div class="dashboard-bar-fill" style="width:${Math.max(2, count / max * 100)}%"></div>
-          </div>
-        </div>
-        <span class="dashboard-count">${count}</span>
-      </div>
-    `).join("");
-  }
-
-  function buildTrend(shares) {
-    const now = new Date();
-    const map = new Map();
-    let keys = [];
-
-    if (selectedPeriod === "today") {
-      for (let h = 0; h <= now.getHours(); h++) {
-        const key = String(h).padStart(2, "0");
-        keys.push(key);
-        map.set(key, { label: key + ":00", shared:0, ordered:0 });
-      }
-      shares.forEach(s => {
-        const d = new Date(Number(s.time));
-        const key = String(d.getHours()).padStart(2, "0");
-        if (!map.has(key)) map.set(key, { label:key + ":00", shared:0, ordered:0 });
-        map.get(key).shared++;
-        if (s.ordered) map.get(key).ordered++;
-      });
-      keys = [...map.keys()].sort();
-    } else if (selectedPeriod === "7days" || selectedPeriod === "30days") {
-      const days = selectedPeriod === "7days" ? 7 : 30;
-      for (let i = days - 1; i >= 0; i--) {
-        const d = new Date(now);
-        d.setDate(d.getDate() - i);
-        const key = d.getFullYear() + "-" +
-          String(d.getMonth() + 1).padStart(2, "0") + "-" +
-          String(d.getDate()).padStart(2, "0");
-        keys.push(key);
-        map.set(key, {
-          label: d.toLocaleDateString(undefined, { month:"short", day:"numeric" }),
-          shared:0,
-          ordered:0
-        });
-      }
-      shares.forEach(s => {
-        const d = new Date(Number(s.time));
-        const key = d.getFullYear() + "-" +
-          String(d.getMonth() + 1).padStart(2, "0") + "-" +
-          String(d.getDate()).padStart(2, "0");
-        if (map.has(key)) {
-          map.get(key).shared++;
-          if (s.ordered) map.get(key).ordered++;
-        }
-      });
-    } else {
-      // All-time trend: show the last 12 calendar months, or all available
-      // months if the dataset is shorter.
-      const first = shares.length
-        ? new Date(Math.min(...shares.map(s => Number(s.time) || now.getTime())))
-        : new Date(now.getFullYear(), now.getMonth(), 1);
-
-      const start = new Date(
-        Math.min(first.getFullYear(), now.getFullYear()),
-        first.getMonth(),
-        1
-      );
-
-      const monthCount = Math.max(
-        1,
-        Math.min(
-          120,
-          (now.getFullYear() - start.getFullYear()) * 12 +
-          now.getMonth() - start.getMonth() + 1
-        )
-      );
-
-      const fromIndex = Math.max(0, monthCount - 12);
-      for (let i = fromIndex; i < monthCount; i++) {
-        const d = new Date(start.getFullYear(), start.getMonth() + i, 1);
-        const key = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
-        keys.push(key);
-        map.set(key, {
-          label: d.toLocaleDateString(undefined, { month:"short", year:"2-digit" }),
-          shared:0,
-          ordered:0
-        });
-      }
-
-      shares.forEach(s => {
-        const d = new Date(Number(s.time));
-        const key = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
-        if (map.has(key)) {
-          map.get(key).shared++;
-          if (s.ordered) map.get(key).ordered++;
-        }
-      });
-    }
-
-    return keys.map(key => ({ key, ...map.get(key) }));
-  }
-
-  function trendChart(shares) {
-    const data = buildTrend(shares);
-    const width = Math.max(320, data.length * 38);
-    const height = 205;
-    const left = 28, right = 10, top = 18, bottom = 42;
-    const chartW = width - left - right;
-    const chartH = height - top - bottom;
-    const maxVal = Math.max(1, ...data.map(d => Math.max(d.shared, d.ordered)));
-    const x = i => left + (data.length <= 1 ? chartW / 2 : i * chartW / (data.length - 1));
-    const y = n => top + chartH - (n / maxVal) * chartH;
-
-    const sharePoints = data.map((d, i) => `${x(i)},${y(d.shared)}`).join(" ");
-    const orderPoints = data.map((d, i) => `${x(i)},${y(d.ordered)}`).join(" ");
-
-    const grid = [0, 0.5, 1].map(r => {
-      const yy = top + chartH * r;
-      const val = Math.round(maxVal * (1 - r));
-      return `
-        <line x1="${left}" y1="${yy}" x2="${width-right}" y2="${yy}" stroke="#e5e7eb" stroke-width="1"/>
-        <text x="${left-7}" y="${yy+4}" text-anchor="end" font-size="9" fill="#6b7280">${val}</text>
-      `;
-    }).join("");
-
-    const labels = data.map((d, i) => {
-      const show = data.length <= 8 || i % Math.ceil(data.length / 6) === 0 || i === data.length - 1;
-      return show
-        ? `<text x="${x(i)}" y="${height-16}" text-anchor="middle" font-size="9" fill="#6b7280">${escText(d.label)}</text>`
-        : "";
-    }).join("");
-
-    const dots = (key, color) => data.map((d, i) =>
-      `<circle cx="${x(i)}" cy="${y(d[key])}" r="3" fill="${color}"/>`
-    ).join("");
-
-    return `
-      <div class="dashboard-legend">
-        <span><i class="dashboard-dot" style="background:#3478f6"></i> Shared</span>
-        <span><i class="dashboard-dot" style="background:#16a34a"></i> Ordered</span>
-      </div>
-      <div class="dashboard-chart">
-        <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Share and order trend">
-          ${grid}
-          <polyline points="${sharePoints}" fill="none" stroke="#3478f6" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
-          <polyline points="${orderPoints}" fill="none" stroke="#16a34a" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
-          ${dots("shared", "#3478f6")}
-          ${dots("ordered", "#16a34a")}
-          ${labels}
-        </svg>
-      </div>
-      <p class="dashboard-subtitle">
-        All-time view shows the last 12 calendar months. Other periods use hourly or daily buckets.
-      </p>
-    `;
-  }
-
-  function horizontalChart(rows, emptyText) {
-    if (!rows.length) return `<div class="dashboard-empty">${escText(emptyText)}</div>`;
-
-    const topRows = rows.slice(0, 8);
-    const max = Math.max(1, ...topRows.map(r => r[1]));
-    const width = 340;
-    const barX = 135;
-    const barMax = 155;
-    const rowH = 32;
-    const height = topRows.length * rowH + 12;
-
-    return `
-      <div class="dashboard-chart">
-        <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Ranked bar chart">
-          ${topRows.map(([label, value], i) => {
-            const y = 8 + i * rowH;
-            const shortLabel = label.length > 17 ? label.slice(0, 16) + "…" : label;
-            return `
-              <text x="0" y="${y+12}" font-size="10" fill="#374151">${escText(shortLabel)}</text>
-              <rect x="${barX}" y="${y}" width="${barMax}" height="18" rx="5" fill="#e5e7eb"/>
-              <rect x="${barX}" y="${y}" width="${Math.max(2, value / max * barMax)}" height="18" rx="5" fill="#3478f6"/>
-              <text x="${Math.min(width-4, barX + Math.max(2, value / max * barMax) + 6)}" y="${y+12}" font-size="10" fill="#111827">${value}</text>
-            `;
-          }).join("")}
-        </svg>
-      </div>
-    `;
-  }
-
-  function statusTable(rows, title) {
-    if (!rows.length) {
-      return `<div class="dashboard-empty">No ${escText(title.toLowerCase())} to display.</div>`;
-    }
-
-    const totals = rows.reduce((t, r) => {
-      ["allotted", "shared", "ordered", "pendingAllotted", "pendingOrdered"].forEach(k => {
-        t[k] += r[k];
-      });
-      t.overAllocated += r.overAllocated;
-      return t;
-    }, {
-      allotted:0, shared:0, ordered:0,
-      pendingAllotted:0, pendingOrdered:0, overAllocated:0
-    });
-
-    return `
-      <div class="dashboard-table-wrap">
-        <table class="dashboard-table">
-          <thead>
-            <tr>
-              <th>${escText(title)}</th>
-              <th>Allotted</th>
-              <th>Shared</th>
-              <th>Ordered</th>
-              <th>Pending Allotted</th>
-              <th>Pending Ordered</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${rows.map(r => `
-              <tr>
-                <td>
-                  ${escText(r.label)}
-                  ${r.overAllocated
-                    ? `<small class="dashboard-warning">Over by ${moneylessNumber(r.overAllocated)}</small>`
-                    : ""}
-                </td>
-                <td>${moneylessNumber(r.allotted)}</td>
-                <td>${r.shared}</td>
-                <td>${r.ordered}</td>
-                <td>${moneylessNumber(r.pendingAllotted)}</td>
-                <td>${moneylessNumber(r.pendingOrdered)}</td>
-              </tr>
-            `).join("")}
-          </tbody>
-          <tfoot>
-            <tr>
-              <td>TOTAL</td>
-              <td>${moneylessNumber(totals.allotted)}</td>
-              <td>${totals.shared}</td>
-              <td>${totals.ordered}</td>
-              <td>${moneylessNumber(totals.pendingAllotted)}</td>
-              <td>${moneylessNumber(totals.pendingOrdered)}</td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
-    `;
-  }
-
-  function renderAdvancedDashboard() {
-    const home = document.getElementById("dashboard");
-    if (!home || typeof state === "undefined") return;
-
-    let panel = document.getElementById("advancedDashboard");
-
-    if (!panel) {
-      panel = document.createElement("div");
-      panel.id = "advancedDashboard";
-      panel.className = "advanced-dashboard";
-
-      const stats = home.querySelector(".stats");
-      if (stats) stats.insertAdjacentElement("afterend", panel);
-      else home.appendChild(panel);
-    }
-
-    const contacts = Array.isArray(state.contacts) ? state.contacts : [];
+  function readData() {
     const products = Array.isArray(state.products) ? state.products : [];
-    const storedShares = Array.isArray(state.shares) ? state.shares : [];
-    const shares = storedShares.map(record => {
-      const product = record.productId == null
-        ? products.find(p =>
-            String(p.name || p.brand || "").trim() ===
-              String(record.productName || record.brand || "").trim() &&
-            String(p.productType || "").trim() ===
-              String(record.productType || "").trim()
-          )
-        : products.find(p => String(p.id) === String(record.productId));
-
-      if (record.productId != null && !product) return null;
-      return product ? {
-        ...record,
-        brand: product.brand || product.name || "",
-        productType: product.productType || "",
-        productName: product.name || product.brand || ""
-      } : record;
+    const byId = new Map(products.map(p => [String(p.id), p]));
+    const shares = (Array.isArray(state.shares) ? state.shares : []).map(s => {
+      const product = s.productId == null ? null : byId.get(String(s.productId));
+      if (s.productId != null && !product) return null;
+      const price = s.priceSnapshot !== undefined && s.priceSnapshot !== null && s.priceSnapshot !== ""
+        ? Math.max(0, Number(s.priceSnapshot) || 0)
+        : Math.max(0, Number(product?.price) || 0);
+      return {...s, _price:price, _brand:s.brand || product?.brand || product?.name || "Unspecified", _type:s.productType || product?.productType || "Unspecified", _product:product};
     }).filter(Boolean);
-
-    const periodShares = getPeriodShares(shares);
-    const ordered = periodShares.filter(s => !!s.ordered).length;
-    const pendingOrdered = periodShares.length - ordered;
-    const orderRate = periodShares.length
-      ? Math.round(ordered / periodShares.length * 100)
-      : 0;
-
-    const allStatus = {
-      allotted: products.reduce((n, p) => n + safeQty(p.allottedQty), 0),
-      shared: shares.length,
-      ordered: shares.filter(s => !!s.ordered).length
-    };
-
-    allStatus.pendingAllotted = Math.max(0, allStatus.allotted - allStatus.shared);
-    allStatus.pendingOrdered = Math.max(0, allStatus.shared - allStatus.ordered);
-    allStatus.overAllocated = Math.max(0, allStatus.shared - allStatus.allotted);
-
-    const brandRanks = countBy(periodShares, s => s.brand || s.productName);
-    const typeRanks = countBy(periodShares, s => s.productType);
-    const brandStatus = productStatus(products, shares, "brand");
-    const typeStatus = productStatus(products, shares, "type");
-
-    const recent = [...periodShares]
-      .sort((a, b) => Number(b.time || 0) - Number(a.time || 0))
-      .slice(0, 6);
-
-    const periodLabels = {
-      today: "Today",
-      "7days": "Last 7 Days",
-      "30days": "Last 30 Days",
-      all: "All Time"
-    };
-
-    panel.innerHTML = `
-      <div class="dashboard-heading">
-        <h3>Analytics Dashboard</h3>
-      </div>
-      <p class="dashboard-subtitle">
-        Stock, sharing and order performance in one place.
-      </p>
-
-      <label for="dashboardPeriod">Activity period</label>
-      <select id="dashboardPeriod" class="dashboard-period">
-        <option value="all" ${selectedPeriod === "all" ? "selected" : ""}>All Time</option>
-        <option value="today" ${selectedPeriod === "today" ? "selected" : ""}>Today</option>
-        <option value="7days" ${selectedPeriod === "7days" ? "selected" : ""}>Last 7 Days</option>
-        <option value="30days" ${selectedPeriod === "30days" ? "selected" : ""}>Last 30 Days</option>
-      </select>
-
-      <div class="dashboard-grid">
-        ${metric("Allotted Units", moneylessNumber(allStatus.allotted), "Across all saved products")}
-        ${metric("Shared", allStatus.shared, "All saved share records")}
-        ${metric("Ordered", allStatus.ordered, "Marked as ordered")}
-        ${metric("Pending Allotted", moneylessNumber(allStatus.pendingAllotted), "Allotted minus shared")}
-        ${metric("Pending Ordered", allStatus.pendingOrdered, "Shared minus ordered")}
-        ${metric("Contacts", contacts.length, "Saved contacts")}
-        ${metric("Products", products.length, "Saved products")}
-        ${metric("Order Rate", orderRate + "%", periodLabels[selectedPeriod] + " marked orders ÷ shares")}
-      </div>
-
-      ${allStatus.overAllocated ? `
-        <div class="dashboard-insight">
-          <strong>Stock alert:</strong>
-          ${moneylessNumber(allStatus.overAllocated)} share record(s) exceed the total allotted quantity.
-          Review product allotments before sharing more.
-        </div>
-      ` : ""}
-
-      <div class="dashboard-heading"><h3>Quick Actions</h3></div>
-      <div class="dashboard-actions">
-        <button class="primary" data-dashboard-page="send">↗ Send Deal</button>
-        <button class="secondary" data-dashboard-page="products">▣ Products</button>
-        <button class="secondary" data-dashboard-page="contacts">♙ Contacts</button>
-        <button class="secondary" data-dashboard-page="history">◷ History</button>
-        <button class="secondary" data-dashboard-page="tracking">📊 Tracking</button>
-      </div>
-
-      <div class="dashboard-chart-card">
-        <h3>Sharing &amp; Order Trend</h3>
-        <p class="dashboard-subtitle">Compare share records with records marked as ordered.</p>
-        ${trendChart(periodShares)}
-      </div>
-
-      <div class="dashboard-charts-grid">
-        <div class="dashboard-chart-card">
-          <h3>Top Brands</h3>
-          <p class="dashboard-subtitle">Ranked by share attempts · ${escText(periodLabels[selectedPeriod])}</p>
-          ${horizontalChart(brandRanks, "No brand activity in this period.")}
-        </div>
-
-        <div class="dashboard-chart-card">
-          <h3>Top Product Types</h3>
-          <p class="dashboard-subtitle">Ranked by share attempts · ${escText(periodLabels[selectedPeriod])}</p>
-          ${horizontalChart(typeRanks, "No product-type activity in this period.")}
-        </div>
-      </div>
-
-      <div class="dashboard-chart-card">
-        <h3>Brand-wise Status</h3>
-        <p class="dashboard-subtitle">All-time allotment and order status.</p>
-        ${statusTable(brandStatus, "Brand")}
-      </div>
-
-      <div class="dashboard-chart-card">
-        <h3>Product Type-wise Status</h3>
-        <p class="dashboard-subtitle">All-time allotment and order status.</p>
-        ${statusTable(typeStatus, "Product Type")}
-      </div>
-
-      <div class="dashboard-chart-card">
-        <h3>Recent Activity</h3>
-        <p class="dashboard-subtitle">Latest saved share attempts in ${escText(periodLabels[selectedPeriod].toLowerCase())}.</p>
-
-        ${recent.length ? recent.map(item => `
-          <div class="dashboard-list-item">
-            <div style="flex:1;min-width:0">
-              <strong>${escText(item.contactName || "Unknown contact")}</strong>
-              <small>${escText(item.productName || item.brand || "Unknown product")}</small>
-              <div class="dashboard-recent-status">
-                ${escText(item.status || "Share attempt recorded")}
-                · ${Number(item.time)
-                  ? escText(new Date(Number(item.time)).toLocaleString())
-                  : "Date unavailable"}
-              </div>
-            </div>
-            <span class="dashboard-count">${item.ordered ? "Ordered" : "Pending"}</span>
-          </div>
-        `).join("") : `
-          <div class="dashboard-empty">No activity recorded in this period.</div>
-        `}
-      </div>
-
-      <p class="hint">
-        All-time stock status is independent of the activity-period filter.
-        Pending Ordered means a share record has not been marked ordered.
-        Opening WhatsApp does not confirm message delivery or an actual purchase.
-      </p>
-    `;
-
-    const periodSelect = document.getElementById("dashboardPeriod");
-    periodSelect.addEventListener("change", () => {
-      selectedPeriod = periodSelect.value;
-      renderAdvancedDashboard();
-    });
-
-    panel.querySelectorAll("[data-dashboard-page]").forEach(button => {
-      button.addEventListener("click", () => {
-        if (typeof showPage === "function") {
-          showPage(button.dataset.dashboardPage);
-        }
-      });
-    });
+    return {contacts:state.contacts||[],products,shares};
   }
-
-  // Keep the analytics dashboard synchronized with app.js saves.
-  if (typeof save === "function" && !save.__dashboardWrapped) {
-    const originalSave = save;
-
-    const wrappedSave = function () {
-      originalSave();
-      renderAdvancedDashboard();
-    };
-
-    wrappedSave.__dashboardWrapped = true;
-    save = wrappedSave;
+  function matchesPeriod(s) {
+    if (period === "all") return true;
+    const t = Number(s.time); if (!Number.isFinite(t) || t <= 0) return false;
+    const now = new Date(); const d = new Date(t);
+    if (period === "today") return d.toDateString() === now.toDateString();
+    if (period === "month") return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+    const days = period === "7days" ? 7 : period === "30days" ? 30 : 90;
+    return t >= now.getTime() - days*86400000 && t <= now.getTime();
   }
-
-  renderAdvancedDashboard();
-
-  document.querySelectorAll('.tabbar button[data-page="dashboard"]')
-    .forEach(button => {
-      button.addEventListener("click", renderAdvancedDashboard);
-    });
-
-  // Refresh when returning to the app after switching tabs or apps.
-  document.addEventListener("visibilitychange", () => {
-    if (!document.hidden) renderAdvancedDashboard();
-  });
+  function section(title, subtitle, content, tag="") {
+    return `<section class="dash-section"><div class="dash-section-head"><div><h3>${title}</h3><p>${subtitle}</p></div>${tag?`<span class="dash-tag">${tag}</span>`:""}</div>${content}</section>`;
+  }
+  function kpi(label, value, note, icon, tone, tint) {
+    return `<div class="dash-kpi" style="--tone:${tone};--tint:${tint}"><div class="dash-kpi-head"><span class="dash-kpi-icon">${icon}</span>${label}</div><strong class="dash-kpi-value">${value}</strong><div class="dash-kpi-note">${note}</div></div>`;
+  }
+  function aggregate(rows, keyFn) {
+    const map = new Map(); rows.forEach(r => {const k=String(keyFn(r)||"Unspecified"); const v=map.get(k)||{shared:0,ordered:0,sharedValue:0,orderedValue:0};v.shared++;v.sharedValue+=r._price;if(r.ordered){v.ordered++;v.orderedValue+=r._price;}map.set(k,v);});
+    return [...map.entries()].sort((a,b)=>b[1].sharedValue-a[1].sharedValue||b[1].shared-a[1].shared);
+  }
+  function ranks(rows, empty) {
+    if(!rows.length) return `<div class="dash-empty">${empty}</div>`;
+    const max=Math.max(1,...rows.map(r=>r[1].sharedValue));
+    return `<div class="dash-rank-list">${rows.slice(0,5).map(([name,v])=>`<div class="dash-rank"><div class="dash-rank-main"><div class="dash-rank-title"><span>${escText(name)}</span><span>${v.shared} shares</span></div><div class="dash-rank-track"><div class="dash-rank-fill" style="width:${Math.max(2,v.sharedValue/max*100)}%"></div></div></div><strong style="font-size:10px;white-space:nowrap">${money(v.sharedValue)}</strong></div>`).join("")}</div>`;
+  }
+  function trendChart(rows) {
+    if(!rows.length) return `<div class="dash-empty">No share activity in this period yet. Once share records are created, the trend will appear here.</div>`;
+    const now=new Date(); let buckets=[];
+    if(period==="today") {for(let h=0;h<=now.getHours();h++) buckets.push({key:String(h).padStart(2,"0"),label:String(h).padStart(2,"0")+":00",shared:0,ordered:0});}
+    else if(period==="7days") {for(let i=6;i>=0;i--){const d=new Date(now);d.setDate(now.getDate()-i);const key=d.toDateString();buckets.push({key,label:d.toLocaleDateString("en-IN",{weekday:"short"}),shared:0,ordered:0});}}
+    else if(period==="30days"||period==="month"||period==="90days") {const start=period==="month"?new Date(now.getFullYear(),now.getMonth(),1):new Date(now.getTime()-(period==="90days"?89:29)*86400000);for(let d=new Date(start);d<=now;d.setDate(d.getDate()+1)){const x=new Date(d);buckets.push({key:x.toDateString(),label:x.getDate()+"",shared:0,ordered:0});}}
+    else {const first=rows.reduce((min,s)=>Math.min(min,Number(s.time)||Date.now()),Date.now());const start=new Date(first);start.setDate(1);const d=new Date(start);while(d<=now){buckets.push({key:d.getFullYear()+"-"+d.getMonth(),label:d.toLocaleDateString("en-IN",{month:"short",year:"2-digit"}),shared:0,ordered:0});d.setMonth(d.getMonth()+1);}}
+    const keys=new Map(buckets.map((b,i)=>[b.key,i]));rows.forEach(s=>{const d=new Date(Number(s.time));let key=period==="today"?String(d.getHours()).padStart(2,"0"):(period==="7days"||period==="30days"||period==="month"||period==="90days")?d.toDateString():d.getFullYear()+"-"+d.getMonth();const i=keys.get(key);if(i!==undefined){buckets[i].shared++;if(s.ordered)buckets[i].ordered++;}});
+    const W=340,H=145,L=26,R=7,T=12,B=28,plotW=W-L-R,plotH=H-T-B,max=Math.max(1,...buckets.map(b=>b.shared));
+    const step=plotW/Math.max(1,buckets.length);const barW=Math.max(2,Math.min(12,step*.48));
+    const bars=buckets.map((b,i)=>{const x=L+i*step+(step-barW)/2;const h=b.shared/max*plotH;const oh=b.ordered/max*plotH;return `<rect x="${x.toFixed(1)}" y="${(T+plotH-h).toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(1,h).toFixed(1)}" rx="2" fill="${palette.blue}" opacity=".85"/><rect x="${(x+barW*.22).toFixed(1)}" y="${(T+plotH-oh).toFixed(1)}" width="${(barW*.56).toFixed(1)}" height="${Math.max(0,oh).toFixed(1)}" rx="1.5" fill="${palette.green}"/>`;}).join("");
+    const labels=buckets.map((b,i)=>{if(buckets.length>15&&i%Math.ceil(buckets.length/7)!==0&&i!==buckets.length-1)return "";return `<text x="${(L+i*step+step/2).toFixed(1)}" y="${H-8}" font-size="8" text-anchor="middle" fill="${palette.muted}">${escText(b.label)}</text>`;}).join("");
+    const grid=[0,.5,1].map(p=>`<line x1="${L}" y1="${T+plotH*(1-p)}" x2="${W-R}" y2="${T+plotH*(1-p)}" stroke="${palette.line}" stroke-dasharray="3 3"/>`).join("");
+    return `<svg class="dash-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Share attempts and ordered records over time">${grid}${bars}${labels}</svg><div class="dash-legend"><span><i style="background:${palette.blue}"></i>Share records</span><span><i style="background:${palette.green}"></i>Marked ordered</span></div>`;
+  }
+  function alertRow(icon,title,detail,page,tone="amber") {
+    const bg=tone==="red"?"#fff0f0":tone==="green"?"#e7f8ef":"#fff3df";const color=tone==="red"?palette.red:tone==="green"?palette.green:"#bb771a";
+    return `<div class="dash-alert" style="--alertbg:${bg};--alerttone:${color}"><span class="dash-alert-icon">${icon}</span><div class="dash-alert-body"><strong>${title}</strong><small>${detail}</small></div><button type="button" data-dashboard-page="${page}">Review →</button></div>`;
+  }
+  function render() {
+    const host=$("advancedDashboard"); if(!host || typeof state==="undefined") return;
+    const data=readData(), allShares=data.shares, selected=allShares.filter(matchesPeriod), ordered=selected.filter(s=>s.ordered), pending=selected.filter(s=>!s.ordered);
+    const sharedValue=selected.reduce((n,s)=>n+s._price,0), orderedValue=ordered.reduce((n,s)=>n+s._price,0), pendingValue=pending.reduce((n,s)=>n+s._price,0);
+    const allotted=data.products.reduce((n,p)=>n+Math.max(0,Number(p.allottedQty)||0),0);
+    const allottedValue=data.products.reduce((n,p)=>n+Math.max(0,Number(p.allottedQty)||0)*Math.max(0,Number(p.price)||0),0);
+    const allOrdered=allShares.filter(s=>s.ordered).length, conversion=allShares.length?Math.round(allOrdered/allShares.length*100):0;
+    const sharedAll=allShares.length, orderedAll=allOrdered, pendingAll=Math.max(0,sharedAll-orderedAll);
+    const sharedAllotted=data.products.reduce((n,p)=>n+allShares.filter(s=>String(s.productId)===String(p.id)).length,0);
+    const pendingAllotted=Math.max(0,allotted-sharedAllotted), overAllocated=Math.max(0,sharedAllotted-allotted);
+    const periodNames={all:"All-time performance",today:"Today's performance","7days":"Last 7 days", "30days":"Last 30 days",month:"This month","90days":"Last 90 days"};
+    const caption=$("dashboardPeriodCaption");if(caption)caption.textContent=periodNames[period]||periodNames.all;
+    const expiring=data.products.filter(p=>p.dealStatus!=="closed"&&p.dealEndDate&&p.dealEndDate>=new Date().toISOString().slice(0,10)&&p.dealEndDate<=new Date(Date.now()+7*86400000).toISOString().slice(0,10));
+    const expired=data.products.filter(p=>p.dealStatus!=="closed"&&p.dealEndDate&&p.dealEndDate<new Date().toISOString().slice(0,10));
+    const lowStock=data.products.filter(p=>p.dealStatus!=="closed"&&Math.max(0,Number(p.allottedQty)||0)-allShares.filter(s=>String(s.productId)===String(p.id)).length<=0&&Number(p.allottedQty)>0);
+    const unpriced=data.products.filter(p=>!(Number(p.price)>0));
+    const alertParts=[];
+    if(overAllocated)alertParts.push(alertRow("⚠","Over-allocation detected",`${qty(overAllocated)} share record(s) exceed total allotted quantity. Check product allocation.` ,"products","red"));
+    if(pendingAll)alertParts.push(alertRow("◷",`${pendingAll} order decision(s) pending`,`${money(allShares.filter(s=>!s.ordered).reduce((n,s)=>n+s._price,0))} pending order value across all saved share records.`,"tracking"));
+    if(expired.length)alertParts.push(alertRow("⌛",`${expired.length} deal(s) past end date`,"Review deal status and close or extend these products.","products","red"));
+    if(expiring.length)alertParts.push(alertRow("◷",`${expiring.length} deal(s) ending soon`,"These deals end within the next 7 days.","products"));
+    if(unpriced.length)alertParts.push(alertRow("₹",`${unpriced.length} product(s) missing price`,"Add a unit price to make value reporting more complete.","products"));
+    if(!alertParts.length)alertParts.push(alertRow("✓","No priority issues detected","Your current allocation and deal dates have no dashboard alerts.","products","green"));
+    const recent=[...selected].sort((a,b)=>(Number(b.time)||0)-(Number(a.time)||0)).slice(0,5);
+    const brandRows=aggregate(selected,s=>s._brand), typeRows=aggregate(selected,s=>s._type);
+    const conversionHTML=`<div class="dash-insights"><div class="dash-insight"><span>All-time order conversion</span><strong>${conversion}%</strong><small>${orderedAll} marked ordered from ${sharedAll} saved share records</small><div class="dash-rate-track"><div class="dash-rate-fill" style="width:${conversion}%"></div></div></div><div class="dash-insight"><span>Pending order pipeline</span><strong>${money(allShares.filter(s=>!s.ordered).reduce((n,s)=>n+s._price,0))}</strong><small>${pendingAll} share records not marked ordered</small></div></div>`;
+    const alertHTML=alertParts.slice(0,5).join("");
+    const recentHTML=recent.length?`<div class="dash-activity-list">${recent.map(s=>`<div class="dash-activity"><span class="dash-activity-dot" style="background:${s.ordered?palette.green:palette.amber}"></span><div class="dash-activity-main"><strong>${escText(s.contactName||"Unknown recipient")} · ${escText(s.productName||s._product?.name||"Unknown product")}</strong><small>${escText(s._brand)} · ${Number(s.time)?new Date(Number(s.time)).toLocaleString("en-IN",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"}):"Date unavailable"} · ${money(s._price)}</small></div><span class="dash-status ${s.ordered?"ordered":"pending"}">${s.ordered?"Ordered":"Pending"}</span></div>`).join("")}</div>`:`<div class="dash-empty">No share records yet. Use “Share a deal” to begin your workflow.</div>`;
+    host.innerHTML=`
+      <div class="dashboard-overview-grid">
+        ${kpi("SHARED VALUE",money(sharedValue),`${selected.length} share record(s) in selected period`,"↗",palette.blue,"#eef1ff")}
+        ${kpi("ORDERED VALUE",money(orderedValue),`${ordered.length} marked ordered · selected period`,"✓",palette.green,"#e7f8ef")}
+        ${kpi("PENDING ORDER VALUE",money(pendingValue),`${pending.length} share record(s) awaiting order status`,"◷",palette.amber,"#fff4e2")}
+        ${kpi("ALLOTTED VALUE",money(allottedValue),`${qty(allotted)} units allotted · current product prices`,"▦",palette.ink,"#edf0f7")}
+      </div>
+      ${section("Share & order activity","Trend for the selected reporting period",trendChart(selected),period==="all"?"ALL TIME":period.toUpperCase())}
+      ${section("Inventory & conversion","All-time quantities and order progress",conversionHTML)}
+      <div class="dash-charts-grid">
+        ${section("Top brands by shared value","Selected period · ranked by recorded share value",ranks(brandRows,"No brand data in this period."))}
+        ${section("Top product types","Selected period · ranked by recorded share value",ranks(typeRows,"No product-type data in this period."))}
+      </div>
+      <div class="dash-lower-grid">
+        ${section("Action centre","Exceptions and items that may need attention",`<div class="dash-action-list">${alertHTML}</div>`,`${alertParts.length} SIGNAL(S)`)}
+        ${section("Recent activity","Latest saved share records in the selected period",recentHTML)}
+      </div>
+      <div class="dash-section"><div class="dash-section-head"><div><h3>Inventory snapshot</h3><p>All-time units · independent of selected reporting period</p></div><button class="mini" type="button" data-dashboard-page="products">Manage stock →</button></div><div class="dash-insights"><div class="dash-insight"><span>Allotted units</span><strong>${qty(allotted)}</strong><small>Across all products</small></div><div class="dash-insight"><span>Shared units</span><strong>${qty(sharedAllotted)}</strong><small>Saved share records for current products</small></div><div class="dash-insight"><span>Pending allotted</span><strong>${qty(pendingAllotted)}</strong><small>Allotted minus shared, minimum zero</small></div><div class="dash-insight"><span>Pending ordered</span><strong>${qty(pendingAll)}</strong><small>Shared records not marked ordered</small></div></div>${overAllocated?`<p class="hint" style="color:#b42318;font-weight:800">Attention: ${qty(overAllocated)} share record(s) exceed total allotted units. Product-level allocation should be reviewed.</p>`:""}</div>
+      <p class="hint" style="padding:3px 2px">Financial values use saved unit-price snapshots when available. Older records without a snapshot use the current product price as an estimate. “Shared” means a share attempt was recorded; opening WhatsApp does not verify delivery or purchase. Allotted value uses current product price × allotted quantity.</p>`;
+    host.querySelectorAll("[data-dashboard-page]").forEach(btn=>btn.addEventListener("click",()=>{if(typeof showPage==="function")showPage(btn.dataset.dashboardPage);}));
+  }
+  const selector=$("dashboardPeriod");
+  if(selector) selector.addEventListener("change",()=>{period=selector.value;render();});
+  if(typeof save==="function"&&!save.__advancedDashboardWrapped){const originalSave=save;const wrapped=function(...args){const result=originalSave.apply(this,args);render();return result;};wrapped.__advancedDashboardWrapped=true;save=wrapped;}
+  document.querySelectorAll('[data-page="dashboard"]').forEach(btn=>btn.addEventListener("click",render));
+  document.addEventListener("visibilitychange",()=>{if(!document.hidden)render();});
+  window.addEventListener("storage",e=>{if(e.key==="dealDhamakaAgentV2")render();});
+  render();
 })();

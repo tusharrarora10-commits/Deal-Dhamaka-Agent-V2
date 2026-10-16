@@ -22,26 +22,38 @@
 
 <main>
 <section id="dashboard" class="page active">
-  <div class="hero">
-    <h2>Share deals. Track everything.</h2>
-    <p>Manage products and contacts, share through WhatsApp, and see brand-wise and recipient-wise results.</p>
+  <div class="dashboard-shell">
+    <div class="dashboard-welcome">
+      <div>
+        <div class="dashboard-kicker">DEAL DHAMAKA · CONTROL CENTRE</div>
+        <h2>Deal performance</h2>
+        <p>Your deal inventory, share value and order pipeline — in one view.</p>
+      </div>
+      <button class="primary dashboard-send" data-page="send" type="button">＋ Share a deal</button>
+    </div>
+    <div class="dashboard-periodbar">
+      <div><span class="dashboard-live-dot"></span><span id="dashboardPeriodCaption">All-time performance</span></div>
+      <label class="dashboard-period-control" for="dashboardPeriod">Period
+        <select id="dashboardPeriod" aria-label="Dashboard reporting period">
+          <option value="all" selected>All time</option>
+          <option value="today">Today</option>
+          <option value="7days">Last 7 days</option>
+          <option value="30days">Last 30 days</option>
+          <option value="month">This month</option>
+          <option value="90days">Last 90 days</option>
+        </select>
+      </label>
+    </div>
+    <div id="advancedDashboard" class="advanced-dashboard" aria-live="polite"></div>
+    <div class="dashboard-data-shortcuts">
+      <button type="button" data-page="products"><span>▦</span><b>Manage deals</b><small>Price, stock &amp; status</small></button>
+      <button type="button" data-page="contacts"><span>♙</span><b>Recipients</b><small>Contacts &amp; numbers</small></button>
+      <button type="button" data-page="tracking"><span>↗</span><b>Order tracking</b><small>Filters &amp; reporting</small></button>
+      <button type="button" data-page="settings"><span>⇧</span><b>Backup data</b><small>Export or restore</small></button>
+    </div>
   </div>
-  <div class="stats">
-    <div class="stat"><b id="contactCount">0</b><span>Contacts</span></div>
-    <div class="stat"><b id="productCount">0</b><span>Products</span></div>
-    <div class="stat"><b id="sentCount">0</b><span>Share Attempts</span></div>
-  </div>
-  <button class="primary big" data-page="send">Send a Deal →</button>
-  <button class="secondary full" data-page="tracking">Open Tracking Dashboard</button>
-  <div class="card">
-    <h3>How it works</h3>
-    <ol>
-      <li>Add contacts and products.</li>
-      <li>Enter brand and product type for each product.</li>
-      <li>Select recipients and products.</li>
-      <li>Open each WhatsApp chat and tap Send.</li>
-      <li>Review share-attempt counts in Tracking.</li>
-    </ol>
+  <div class="dashboard-hidden-stats" aria-hidden="true">
+    <span id="contactCount">0</span><span id="productCount">0</span><span id="sentCount">0</span>
   </div>
 </section>
 
@@ -69,17 +81,6 @@
   </div>
   <div class="card">
     <div class="selection-head">
-      <h3>Select Products</h3>
-      <div>
-        <button class="mini" id="allProducts">All</button>
-        <button class="mini" id="clearProducts">Clear</button>
-      </div>
-    </div>
-    <input id="sendProductSearch" class="search" placeholder="Find product">
-    <div id="sendProducts" class="checklist"></div>
-  </div>
-  <div class="card">
-    <div class="selection-head">
       <h3>Select Contacts</h3>
       <div>
         <button class="mini" id="allContacts">All</button>
@@ -88,6 +89,17 @@
     </div>
     <input id="sendContactSearch" class="search" placeholder="Find contact">
     <div id="sendContacts" class="checklist"></div>
+  </div>
+  <div class="card">
+    <div class="selection-head">
+      <h3>Select Products</h3>
+      <div>
+        <button class="mini" id="allProducts">All</button>
+        <button class="mini" id="clearProducts">Clear</button>
+      </div>
+    </div>
+    <input id="sendProductSearch" class="search" placeholder="Find product">
+    <div id="sendProducts" class="checklist"></div>
   </div>
   <div class="card">
     <h3>Message Preview</h3>
@@ -238,10 +250,10 @@
 <!-- Keep app.js first: it owns the existing dealDhamakaAgentV2 local-storage data. -->
 <script src="app.js"></script>
 <script src="whatsapp-enhancements.js"></script>
-<!-- The detailed dashboard renders first; analytics adds KPI/trend/stock/export tools above it. -->
+<!-- One consolidated executive dashboard. Detailed filters and tables remain in Tracking. -->
 <script src="dashboard.js"></script>
-<script src="analytics.js"></script>
 <script src="followup.js"></script>
+<script src="bulk-followups.js"></script>
 <script src="undo-redo.js"></script>
   <script src="recipients-tab.js"></script>
 </body>

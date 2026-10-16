@@ -109,122 +109,7 @@ function productTotals(productId) {
   };
 }
 
-function renderInventoryOverview() {
-  const home = $("dashboard");
-  if (!home) return;
-
-  let panel = $("inventoryOverview");
-
-  if (!panel) {
-    panel = document.createElement("div");
-    panel.id = "inventoryOverview";
-    panel.className = "card";
-
-    const advanced = $("advancedDashboard");
-    const stats = home.querySelector(".stats");
-
-    if (advanced) {
-      advanced.insertAdjacentElement("afterend", panel);
-    } else if (stats) {
-      stats.insertAdjacentElement("afterend", panel);
-    } else {
-      home.appendChild(panel);
-    }
-  }
-
-  const total = state.products.reduce((sum, p) => {
-    const t = productTotals(p.id);
-
-    sum.allotted += t.allotted;
-    sum.shared += t.shared;
-    sum.ordered += t.ordered;
-    sum.pendingAllotted += t.pendingAllotted;
-    sum.pendingOrdered += t.pendingOrdered;
-    sum.available += t.available;
-    sum.shortage += t.shortage;
-
-    return sum;
-  }, {
-    allotted: 0,
-    shared: 0,
-    ordered: 0,
-    pendingAllotted: 0,
-    pendingOrdered: 0,
-    available: 0,
-    shortage: 0
-  });
-
-  const rows = state.products.map(p => {
-    const t = productTotals(p.id);
-
-    return `
-      <div class="report-row">
-        <span>
-          ${esc(p.name)}
-          <small style="display:block;color:var(--muted)">
-            Allotted: ${formatQuantity(t.allotted)} ${esc(t.unit)}
-            · Shared: ${t.shared}
-            · Ordered: ${t.ordered}
-            · Pending Allotted: ${formatQuantity(t.pendingAllotted)}
-            · Pending Ordered: ${t.pendingOrdered}
-          </small>
-        </span>
-        <strong>
-          Available: ${formatQuantity(t.available)}
-          ${t.shortage
-            ? ` · Over-allocated: ${formatQuantity(t.shortage)}`
-            : ""}
-        </strong>
-      </div>
-    `;
-  }).join("");
-
-  panel.innerHTML = `
-    <h3>Product Allotment &amp; Order Status</h3>
-
-    <div class="stats">
-      <div class="stat">
-        <b>${formatQuantity(total.allotted)}</b>
-        <span>Allotted</span>
-      </div>
-      <div class="stat">
-        <b>${total.shared}</b>
-        <span>Shared</span>
-      </div>
-      <div class="stat">
-        <b>${total.ordered}</b>
-        <span>Ordered</span>
-      </div>
-      <div class="stat">
-        <b>${formatQuantity(total.pendingAllotted)}</b>
-        <span>Pending Allotted</span>
-      </div>
-      <div class="stat">
-        <b>${total.pendingOrdered}</b>
-        <span>Pending Ordered</span>
-      </div>
-    </div>
-
-    ${total.shortage
-      ? `<p class="hint">Warning: ${formatQuantity(total.shortage)} unit(s) are over-allocated. Review product allotments.</p>`
-      : ""}
-
-    <p class="hint">
-      Each saved contact-product share consumes one allotted unit.
-      Ordered status is managed separately.
-    </p>
-
-    <button class="secondary full" type="button" id="openProductStock">
-      View Product Stock
-    </button>
-
-    <div>
-      ${rows || '<div class="report-empty">Add products to start tracking stock.</div>'}
-    </div>
-  `;
-
-  $("openProductStock").onclick = () => showPage("products");
-}
+function renderInventoryOverview() { /* Home inventory is consolidated in dashboard.js. */ }
 
 function updateStats() {
   $("contactCount").textContent = state.contacts.length;
@@ -1189,6 +1074,7 @@ $("openNext").onclick = () => {
     brand: p.brand,
     productType: p.productType,
     platform: p.platform,
+    priceSnapshot: Math.max(0, Number(p.price) || 0),
     time: Date.now(),
     message: msg,
     status: "WhatsApp opened; send not confirmed",
