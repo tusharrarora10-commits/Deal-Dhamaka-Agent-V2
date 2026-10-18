@@ -42,7 +42,7 @@
     }
     const style = document.createElement('style');
     style.textContent = `
-      .tabbar{grid-template-columns:repeat(8,minmax(0,1fr))!important}.tabbar button{min-width:0!important}
+      .tabbar{grid-template-columns:repeat(9,minmax(0,1fr))!important}.tabbar button{min-width:0!important}
       #recipients .recipient-record{background:#fff;border-bottom:1px solid #e5e7eb;padding:16px 0}
       #recipients .recipient-record h3{font-size:17px;margin:0 0 10px;overflow-wrap:anywhere}
       #recipients .recipient-record p{color:#6b7280;font-size:13px;line-height:1.5;margin:5px 0;overflow-wrap:anywhere}

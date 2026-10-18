@@ -49,9 +49,8 @@
       <button type="button" data-page="products"><span>▦</span><b>Manage deals</b><small>Price, stock &amp; status</small></button>
       <button type="button" data-page="contacts"><span>♙</span><b>Recipients</b><small>Contacts &amp; numbers</small></button>
       <button type="button" data-page="tracking"><span>↗</span><b>Order tracking</b><small>Filters &amp; reporting</small></button>
-      <button type="button" data-page="refunds"><span>₹</span><b>Refunds</b><small>Refund amounts &amp; status</small></button>
+      <button type="button" data-page="settings"><span>⇧</span><b>Backup data</b><small>Export or restore</small></button>
     </div>
-    <div class="card home-backup-card"><h3>Data backup</h3><p class="hint">Export a copy of your contacts, products, share history and refund records.</p><button class="secondary full" id="exportData">⇩ Export Full Backup (JSON)</button></div>
   </div>
   <div class="dashboard-hidden-stats" aria-hidden="true">
     <span id="contactCount">0</span><span id="productCount">0</span><span id="sentCount">0</span>
@@ -210,25 +209,17 @@
 </section>
 
 <section id="refunds" class="page">
-  <div class="sectionhead">
-    <div><h2>Refunds</h2><p>Record and review refunds against shared products</p></div>
-    <button class="secondary" id="refreshRefunds">Refresh</button>
-  </div>
-  <div class="stats four">
-    <div class="stat"><b id="refundTotalRecords">0</b><span>Refund records</span></div>
-    <div class="stat"><b id="refundTotalAmount">₹0</b><span>Total refunded</span></div>
-    <div class="stat"><b id="refundFullCount">0</b><span>With refund</span></div>
-    <div class="stat"><b id="refundNoCount">0</b><span>No refund recorded</span></div>
-  </div>
-  <input id="refundSearch" class="search" placeholder="Search recipient, product or brand">
-  <div class="card"><p class="hint">Enter the amount refunded for each recipient/product record. Leave ₹0 when no refund has been recorded. Values are stored locally with the existing share history.</p><div id="refundRecords"></div></div>
+  <div class="sectionhead"><div><h2>Refunds</h2><p>Review eligible shared products and mark refunds</p></div><button class="secondary" id="refreshRefunds" type="button">Refresh</button></div>
+  <div class="card"><h3>Find products</h3><input id="refundProductSearch" class="search" placeholder="Search product or brand"><div class="selection-head"><b>Select products</b><div><button class="mini" id="refundSelectAllProducts" type="button">Select all</button><button class="mini" id="refundClearProducts" type="button">Clear</button></div></div><div id="refundProductList" class="checklist"></div><button id="markProductsRefunded" class="primary full" type="button">Mark eligible contacts for selected products as refunded</button><p class="hint">Product-wide action marks eligible ordered share records for the selected products. Review the contact list first.</p></div>
+  <div class="card"><h3>Eligible contacts</h3><input id="refundContactSearch" class="search" placeholder="Search recipient, number or product"><div class="selection-head"><b>Select contacts</b><div><button class="mini" id="refundSelectAllContacts" type="button">Select all</button><button class="mini" id="refundClearContacts" type="button">Clear</button></div></div><div id="refundContactList"></div><button id="markContactsRefunded" class="primary full" type="button">Mark selected contacts as refunded</button><p class="hint">Refund status is stored per recipient-product share record. Refund amount defaults to the saved unit price and can be edited.</p></div>
 </section>
 
 <section id="settings" class="page">
   <div class="sectionhead">
-    <div><h2>Data &amp; Settings</h2><p>Import and manage local data</p></div>
+    <div><h2>Data &amp; Settings</h2><p>Backup your local data</p></div>
   </div>
   <div class="card">
+    <button class="secondary full" id="exportData">Export Full Backup (JSON)</button>
     <label class="filelabel">Import Backup (JSON)
       <input type="file" id="importData" accept=".json,application/json">
     </label>
@@ -248,8 +239,9 @@
   <button data-page="products">▣<span>Products</span></button>
   <button data-page="send">↗<span>Send</span></button>
   <button data-page="history">◷<span>History</span></button>
-  <button data-page="refunds">₹<span>Refunds</span></button>
+  <button data-page="settings">⚙<span>Settings</span></button>
   <button data-page="tracking">📊<span>Tracking</span></button>
+  <button data-page="refunds">↩<span>Refunds</span></button>
 </nav>
 
 <div id="modal" class="modal" hidden>
@@ -271,5 +263,6 @@
 <script src="bulk-followups.js"></script>
 <script src="undo-redo.js"></script>
   <script src="recipients-tab.js"></script>
+<script src="refunds.js"></script>
 </body>
 </html>
