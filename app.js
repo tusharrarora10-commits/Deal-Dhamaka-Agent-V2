@@ -133,6 +133,7 @@ function showPage(name) {
   );
 
   if (name === "contacts") renderContacts();
+  if (name === "refunds" && typeof renderRefunds === "function") renderRefunds();
   if (name === "products") renderProducts();
   if (name === "send") renderSendLists();
   if (name === "history") renderHistory();
@@ -414,6 +415,7 @@ function bindItemActions(type) {
 }
 
 function renderContacts() {
+  const countEl = $("contactsTotal"); if (countEl) countEl.textContent = `${state.contacts.length} contact${state.contacts.length === 1 ? "" : "s"} total`;
   const q = $("contactSearch").value.toLowerCase();
 
   const a = state.contacts.filter(x =>
@@ -431,7 +433,6 @@ function renderContacts() {
           <p>${esc(x.category)}</p>
         </div>
         <div class="actions">
-          <button class="mini" data-timeline="${x.id}">Timeline</button>
           <button class="mini" data-edit="${x.id}">Edit</button>
           <button class="mini" data-delete="${x.id}">Delete</button>
         </div>
@@ -440,80 +441,8 @@ function renderContacts() {
     : '<div class="empty">No contacts yet. Add one or import a CSV.</div>';
 
   bindItemActions("contacts");
-  document.querySelectorAll("[data-timeline]").forEach(button => {
-    button.onclick = () => openContactTimeline(button.dataset.timeline);
-  });
 }
 
-function openContactTimeline(contactId) {
-  const contact = state.contacts.find(c => String(c.id) === String(contactId));
-  if (!contact) return;
-  const rows = state.shares
-    .filter(s => String(s.contactId) === String(contact.id) ||
-      (!s.contactId && s.phone && String(s.phone).replace(/\D/g, "") === String(contact.phone || "").replace(/\D/g, "")))
-    .sort((a,b) => Number(b.time || 0) - Number(a.time || 0));
-  const orderedCount = rows.filter(r => r.ordered).length;
-  const pendingCount = rows.length - orderedCount;
-  const reviewCount = rows.filter(r => (r.reviewStatus || "pending") !== "done").length;
-  const overlay = document.createElement("div");
-  overlay.className = "contact-timeline-overlay";
-  overlay.innerHTML = `
-    <section class="contact-timeline-panel" role="dialog" aria-modal="true" aria-label="Recipient timeline">
-      <header class="ct-head">
-        <div><div class="ct-kicker">DEAL DHAMAKA · RECIPIENT HISTORY</div><h2>${esc(contact.name)} · Timeline</h2>
-        <p>${esc(contact.phone || "")} ${contact.category ? "· " + esc(contact.category) : ""}</p></div>
-        <button type="button" class="ct-close" aria-label="Close timeline">×</button>
-      </header>
-      <div class="ct-kpis">
-        <div class="ct-kpi blue"><strong>${rows.length}</strong><span>Shared</span></div>
-        <div class="ct-kpi green"><strong>${orderedCount}</strong><span>Ordered</span></div>
-        <div class="ct-kpi amber"><strong>${pendingCount}</strong><span>Pending</span></div>
-        <div class="ct-kpi purple"><strong>${reviewCount}</strong><span>Review pending</span></div>
-      </div>
-      <div class="ct-controls"><input class="ct-search" type="search" placeholder="Filter by product or status" aria-label="Filter timeline"><select class="ct-product-filter" aria-label="Filter by product"><option value="">All products</option>${[...new Set(rows.map(r => r.productName || r.brand || "Unknown product"))].map(n => `<option>${esc(n)}</option>`).join("")}</select></div>
-      <div class="ct-table-wrap"><table class="ct-table"><thead><tr><th>📅 Date</th><th>🛍️ Product</th><th>↗ Shared</th><th>✓ Ordered</th></tr></thead><tbody>
-      ${rows.length ? rows.map(r => {
-        const product = state.products.find(p => String(p.id) === String(r.productId));
-        const date = r.time ? new Date(Number(r.time)) : null;
-        const review = r.reviewStatus || "pending";
-        return `<tr data-share-row="${esc(r.id)}" data-product-name="${esc(r.productName || r.brand || "Unknown product")}" data-search="${esc([r.productName,r.brand,r.productType,r.status,r.ordered ? "ordered" : "pending",review].join(" ").toLowerCase())}">
-          <td><strong>${date && !isNaN(date) ? date.toLocaleDateString("en-IN", {day:"2-digit",month:"short",year:"numeric"}) : "—"}</strong><small>${date && !isNaN(date) ? date.toLocaleTimeString("en-IN", {hour:"2-digit",minute:"2-digit"}) : ""}</small></td>
-          <td class="ct-product-cell"><span class="ct-brand-pill">${esc(r.brand || product?.brand || "Deal")}</span><strong>${esc(r.productName || product?.name || "Unknown product")}</strong><small>Review: <select class="ct-edit-review ct-review-inline" data-share-id="${esc(r.id)}" aria-label="Review status for ${esc(r.productName || r.brand)}"><option value="pending" ${review !== "done" ? "selected" : ""}>Pending</option><option value="done" ${review === "done" ? "selected" : ""}>Done</option></select></small></td>
-          <td><span class="ct-shared-badge"><span class="ct-shared-check">✓</span> Shared</span><small>${date && !isNaN(date) ? date.toLocaleTimeString("en-IN", {hour:"2-digit",minute:"2-digit"}) : "Time not recorded"}</small></td>
-          <td><select class="ct-edit-order ${r.ordered ? "is-ordered" : "is-pending"}" data-share-id="${esc(r.id)}" aria-label="Order status for ${esc(r.productName || r.brand)}"><option value="pending" ${!r.ordered ? "selected" : ""}>⏳ Pending</option><option value="ordered" ${r.ordered ? "selected" : ""}>✓ Ordered</option></select><small>${r.orderedAt ? new Date(r.orderedAt).toLocaleDateString("en-IN", {day:"2-digit",month:"short"}) : "Update status above"}</small></td>
-        </tr>`;
-      }).join("") : '<tr><td colspan="4" class="ct-empty">No saved share history for this recipient yet.</td></tr>'}
-      </tbody></table></div>
-      <footer class="ct-foot">Changes save automatically. “Shared” means the app opened WhatsApp; it does not confirm message delivery.</footer>
-    </section>`;
-  document.body.appendChild(overlay);
-  const close = () => overlay.remove();
-  overlay.querySelector(".ct-close").onclick = close;
-  overlay.addEventListener("click", e => { if (e.target === overlay) close(); });
-  const applyFilters = () => {
-    const q = overlay.querySelector(".ct-search").value.trim().toLowerCase();
-    const product = overlay.querySelector(".ct-product-filter").value;
-    overlay.querySelectorAll("[data-share-row]").forEach(row => {
-      row.hidden = !(row.dataset.search.includes(q) && (!product || row.dataset.productName === product));
-    });
-  };
-  overlay.querySelector(".ct-search").addEventListener("input", applyFilters);
-  overlay.querySelector(".ct-product-filter").addEventListener("change", applyFilters);
-  overlay.querySelectorAll(".ct-edit-order").forEach(select => select.addEventListener("change", () => {
-    const record = state.shares.find(r => String(r.id) === String(select.dataset.shareId));
-    if (!record) return;
-    record.ordered = select.value === "ordered";
-    record.orderedAt = record.ordered ? (record.orderedAt || new Date().toISOString()) : "";
-    save(); renderHistory(); renderTracking(); openContactTimeline(contactId); overlay.remove();
-  }));
-  overlay.querySelectorAll(".ct-edit-review").forEach(select => select.addEventListener("change", () => {
-    const record = state.shares.find(r => String(r.id) === String(select.dataset.shareId));
-    if (!record) return;
-    record.reviewStatus = select.value;
-    record.reviewUpdatedAt = new Date().toISOString();
-    save(); renderHistory(); renderTracking(); openContactTimeline(contactId); overlay.remove();
-  }));
-}
 
 let productDealFilter = "active";
 
