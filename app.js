@@ -137,6 +137,7 @@ function showPage(name) {
   if (name === "send") renderSendLists();
   if (name === "history") renderHistory();
   if (name === "tracking") renderTracking();
+  if (name === "refunds") renderRefunds();
 
   updateStats();
   window.scrollTo(0, 0);
@@ -471,7 +472,7 @@ function openContactTimeline(contactId) {
         <div class="ct-kpi purple"><strong>${reviewCount}</strong><span>Review pending</span></div>
       </div>
       <div class="ct-controls"><input class="ct-search" type="search" placeholder="Filter by product or status" aria-label="Filter timeline"><select class="ct-product-filter" aria-label="Filter by product"><option value="">All products</option>${[...new Set(rows.map(r => r.productName || r.brand || "Unknown product"))].map(n => `<option>${esc(n)}</option>`).join("")}</select></div>
-      <div class="ct-table-wrap"><table class="ct-table"><thead><tr><th>📅 Date</th><th>🛍️ Product</th><th>↗ Shared</th><th>✓ Ordered</th></tr></thead><tbody>
+      <div class="ct-table-wrap"><table class="ct-table"><thead><tr><th>📅 Date</th><th>🛍️ Product</th><th>↗ Shared</th><th>✓ Ordered</th><th>₹ Amt refunded</th></tr></thead><tbody>
       ${rows.length ? rows.map(r => {
         const product = state.products.find(p => String(p.id) === String(r.productId));
         const date = r.time ? new Date(Number(r.time)) : null;
@@ -481,8 +482,9 @@ function openContactTimeline(contactId) {
           <td class="ct-product-cell"><span class="ct-brand-pill">${esc(r.brand || product?.brand || "Deal")}</span><strong>${esc(r.productName || product?.name || "Unknown product")}</strong><small>Review: <select class="ct-edit-review ct-review-inline" data-share-id="${esc(r.id)}" aria-label="Review status for ${esc(r.productName || r.brand)}"><option value="pending" ${review !== "done" ? "selected" : ""}>Pending</option><option value="done" ${review === "done" ? "selected" : ""}>Done</option></select></small></td>
           <td><span class="ct-shared-badge"><span class="ct-shared-check">✓</span> Shared</span><small>${date && !isNaN(date) ? date.toLocaleTimeString("en-IN", {hour:"2-digit",minute:"2-digit"}) : "Time not recorded"}</small></td>
           <td><select class="ct-edit-order ${r.ordered ? "is-ordered" : "is-pending"}" data-share-id="${esc(r.id)}" aria-label="Order status for ${esc(r.productName || r.brand)}"><option value="pending" ${!r.ordered ? "selected" : ""}>⏳ Pending</option><option value="ordered" ${r.ordered ? "selected" : ""}>✓ Ordered</option></select><small>${r.orderedAt ? new Date(r.orderedAt).toLocaleDateString("en-IN", {day:"2-digit",month:"short"}) : "Update status above"}</small></td>
+          <td><label class="ct-refund-label"><span>₹</span><input class="ct-refund-input" type="number" min="0" step="0.01" inputmode="decimal" data-refund-share-id="${esc(r.id)}" aria-label="Amount refunded for ${esc(r.productName || r.brand)}" value="${Number(r.refundAmount || 0) || ""}" placeholder="0.00"><small>Refund amount</small></label></td>
         </tr>`;
-      }).join("") : '<tr><td colspan="4" class="ct-empty">No saved share history for this recipient yet.</td></tr>'}
+      }).join("") : '<tr><td colspan="5" class="ct-empty">No saved share history for this recipient yet.</td></tr>'}
       </tbody></table></div>
       <footer class="ct-foot">Changes save automatically. “Shared” means the app opened WhatsApp; it does not confirm message delivery.</footer>
     </section>`;
@@ -513,7 +515,59 @@ function openContactTimeline(contactId) {
     record.reviewUpdatedAt = new Date().toISOString();
     save(); renderHistory(); renderTracking(); openContactTimeline(contactId); overlay.remove();
   }));
+  overlay.querySelectorAll(".ct-refund-input").forEach(input => {
+    const persistRefund = () => {
+      const record = state.shares.find(r => String(r.id) === String(input.dataset.refundShareId));
+      if (!record) return;
+      const amount = Number(input.value);
+      record.refundAmount = Number.isFinite(amount) && amount > 0 ? Math.round(amount * 100) / 100 : 0;
+      record.refundUpdatedAt = record.refundAmount ? new Date().toISOString() : "";
+      save();
+    };
+    input.addEventListener("change", () => { persistRefund(); });
+    input.addEventListener("blur", () => { persistRefund(); });
+  });
 }
+
+function renderRefunds() {
+  const host = $("refundRecords");
+  if (!host) return;
+  const q = ($("refundSearch")?.value || "").trim().toLowerCase();
+  const records = state.shares.map(s => {
+    const contact = state.contacts.find(c => String(c.id) === String(s.contactId)) || {};
+    const product = state.products.find(p => String(p.id) === String(s.productId)) || {};
+    return {s, contact, product, amount: Math.max(0, Number(s.refundAmount) || 0)};
+  }).filter(x => [x.contact.name, x.contact.phone, x.product.name, x.product.brand, x.s.productName, x.s.brand].join(" ").toLowerCase().includes(q))
+    .sort((a,b) => Number(b.s.time || 0) - Number(a.s.time || 0));
+  const total = state.shares.reduce((sum,s) => sum + Math.max(0, Number(s.refundAmount) || 0), 0);
+  const withRefund = state.shares.filter(s => Number(s.refundAmount) > 0).length;
+  $("refundTotalRecords").textContent = state.shares.length;
+  $("refundTotalAmount").textContent = "₹" + total.toLocaleString("en-IN", {minimumFractionDigits:2, maximumFractionDigits:2});
+  $("refundFullCount").textContent = withRefund;
+  $("refundNoCount").textContent = state.shares.length - withRefund;
+  host.innerHTML = records.length ? records.map(({s,contact,product,amount}) => {
+    const dt = Number(s.time) ? new Date(Number(s.time)).toLocaleDateString("en-IN", {day:"2-digit",month:"short",year:"numeric"}) : "Date not recorded";
+    return `<div class="item refund-record"><div class="refund-record-info"><h3>${esc(contact.name || s.contactName || "Unknown recipient")}</h3><p>${esc(product.name || s.productName || "Unknown product")}${(product.brand || s.brand) ? " · " + esc(product.brand || s.brand) : ""}</p><small>${esc(dt)} · ${s.ordered ? "Ordered" : "Order pending"}</small></div><label class="refund-amount-field">Amount refunded (₹)<input type="number" min="0" step="0.01" inputmode="decimal" data-refund-record="${esc(s.id)}" value="${amount || ""}" placeholder="0.00"></label></div>`;
+  }).join("") : '<div class="empty">No matching share records found.</div>';
+  host.querySelectorAll("[data-refund-record]").forEach(input => {
+    const update = () => {
+      const record = state.shares.find(s => String(s.id) === String(input.dataset.refundRecord));
+      if (!record) return;
+      const n = Number(input.value);
+      record.refundAmount = Number.isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : 0;
+      record.refundUpdatedAt = record.refundAmount ? new Date().toISOString() : "";
+      save();
+      const caret = input.selectionStart;
+      renderRefunds();
+      const next = host.querySelector(`[data-refund-record="${CSS.escape(String(record.id))}"]`);
+      if (next) { next.focus(); try { next.setSelectionRange(caret, caret); } catch (_) {} }
+    };
+    input.addEventListener("change", update);
+    input.addEventListener("blur", update);
+  });
+}
+$("refreshRefunds")?.addEventListener("click", renderRefunds);
+$("refundSearch")?.addEventListener("input", renderRefunds);
 
 let productDealFilter = "active";
 
