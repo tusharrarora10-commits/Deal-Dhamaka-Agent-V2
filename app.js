@@ -133,7 +133,6 @@ function showPage(name) {
   );
 
   if (name === "contacts") renderContacts();
-  if (name === "refunds" && typeof renderRefunds === "function") renderRefunds();
   if (name === "products") renderProducts();
   if (name === "send") renderSendLists();
   if (name === "history") renderHistory();
@@ -394,6 +393,9 @@ function bindItemActions(type) {
       if (record) (type === "contacts" ? addContact : addProduct)(record);
     };
   });
+  container.querySelectorAll("[data-timeline]").forEach(button => {
+    button.onclick = () => showContactTimeline(button.dataset.timeline);
+  });
   container.querySelectorAll("[data-delete]").forEach(button => {
     button.onclick = () => {
       const id = button.dataset.delete;
@@ -414,8 +416,75 @@ function bindItemActions(type) {
   });
 }
 
+function showContactTimeline(contactId) {
+  const contact = state.contacts.find(c => String(c.id) === String(contactId));
+  if (!contact) return;
+  const records = state.shares.filter(s =>
+    String(s.contactId) === String(contact.id) ||
+    (!s.contactId && String(s.phone || "").replace(/\D/g, "") === String(contact.phone || "").replace(/\D/g, ""))
+  ).sort((a,b) => Number(b.time || 0) - Number(a.time || 0));
+  const ordered = records.filter(s => !!s.ordered).length;
+  const pending = records.length - ordered;
+  const modal = $("modal"), title = $("modalTitle"), form = $("modalForm");
+  title.textContent = `${contact.name} · Timeline`;
+  form.innerHTML = `
+    <div class="timeline-contact-head">
+      <div class="timeline-stats">
+        <div><strong>${records.length}</strong><span>Products shared</span></div>
+        <div><strong>${ordered}</strong><span>Ordered</span></div>
+        <div><strong>${pending}</strong><span>Pending</span></div>
+      </div>
+      <h3>${esc(contact.name)}</h3>
+      <p>WhatsApp: ${esc(contact.phone || "—")}</p>
+      <p>${esc(contact.category || "")}</p>
+    </div>
+    <input id="contactTimelineFilter" class="timeline-filter" placeholder="Filter by product or status" aria-label="Filter timeline">
+    <div id="contactTimelineRows" class="contact-timeline-rows">
+      ${records.length ? records.map(s => {
+        const date = s.time ? new Date(Number(s.time)).toLocaleString() : "Date unavailable";
+        const product = s.productName || s.brand || "Product";
+        const refunded = !!s.refunded;
+        const review = !!s.reviewRequested;
+        return `<article class="contact-timeline-row" data-search="${esc([date, product, s.brand, s.productType, s.ordered ? 'ordered' : 'pending', refunded ? 'refunded' : '', review ? 'review requested' : ''].join(' ').toLowerCase())}">
+          <div class="timeline-date">${esc(date)}</div>
+          <div class="timeline-product"><strong>${esc(product)}</strong><span>${esc(s.brand || "")}${s.productType ? ` · ${esc(s.productType)}` : ""}</span></div>
+          <div class="timeline-status-grid">
+            <span class="timeline-pill shared">Shared</span>
+            <span class="timeline-pill ${s.ordered ? 'ordered' : 'pending'}">${s.ordered ? 'Ordered' : 'Order pending'}</span>
+            <label class="timeline-check"><input type="checkbox" data-timeline-review="${esc(s.id)}" ${review ? 'checked' : ''}> Review requested</label>
+            <label class="timeline-check refund-check"><input type="checkbox" data-timeline-refund="${esc(s.id)}" ${refunded ? 'checked' : ''}> Refunded</label>
+          </div>
+        </article>`;
+      }).join("") : '<p class="empty">No product share history found for this contact.</p>'}
+    </div>
+    <div class="modal-actions"><button type="button" class="primary" id="closeTimeline">Done</button></div>`;
+  modal.hidden = false;
+  const close = () => { modal.hidden = true; };
+  $("closeTimeline").onclick = close;
+  const filter = $("contactTimelineFilter");
+  filter.oninput = () => {
+    const q = filter.value.trim().toLowerCase();
+    form.querySelectorAll(".contact-timeline-row").forEach(row => { row.hidden = !row.dataset.search.includes(q); });
+  };
+  form.querySelectorAll("[data-timeline-review]").forEach(input => input.onchange = () => {
+    const rec = state.shares.find(s => String(s.id) === String(input.dataset.timelineReview));
+    if (!rec) return;
+    rec.reviewRequested = input.checked;
+    rec.reviewRequestedAt = input.checked ? (rec.reviewRequestedAt || new Date().toISOString()) : "";
+    save();
+  });
+  form.querySelectorAll("[data-timeline-refund]").forEach(input => input.onchange = () => {
+    const rec = state.shares.find(s => String(s.id) === String(input.dataset.timelineRefund));
+    if (!rec) return;
+    rec.refunded = input.checked;
+    rec.refundedAt = input.checked ? (rec.refundedAt || new Date().toISOString()) : "";
+    save();
+    renderTracking();
+    renderHistory();
+  });
+}
+
 function renderContacts() {
-  const countEl = $("contactsTotal"); if (countEl) countEl.textContent = `${state.contacts.length} contact${state.contacts.length === 1 ? "" : "s"} total`;
   const q = $("contactSearch").value.toLowerCase();
 
   const a = state.contacts.filter(x =>
@@ -433,6 +502,7 @@ function renderContacts() {
           <p>${esc(x.category)}</p>
         </div>
         <div class="actions">
+          <button class="mini" data-timeline="${x.id}">Timeline</button>
           <button class="mini" data-edit="${x.id}">Edit</button>
           <button class="mini" data-delete="${x.id}">Delete</button>
         </div>
@@ -1187,6 +1257,22 @@ function deleteShare(shareId) {
   renderTracking();
 }
 
+function toggleRefunded(shareId, checked) {
+  const item = state.shares.find(x => String(x.id) === String(shareId));
+  if (!item) return;
+  item.refunded = checked;
+  item.refundedAt = checked ? (item.refundedAt || new Date().toISOString()) : "";
+  save(); renderTracking(); renderHistory();
+}
+
+function toggleReviewRequested(shareId, checked) {
+  const item = state.shares.find(x => String(x.id) === String(shareId));
+  if (!item) return;
+  item.reviewRequested = checked;
+  item.reviewRequestedAt = checked ? (item.reviewRequestedAt || new Date().toISOString()) : "";
+  save(); renderTracking(); renderHistory();
+}
+
 /* =========================
    ORDER STATUS
 ========================= */
@@ -1695,6 +1781,16 @@ function renderTracking() {
               )"
             >
             Product Ordered
+          </label>
+          <label class="ordered-toggle refunded-toggle">
+            <input type="checkbox" ${x.refunded ? "checked" : ""}
+              onchange="toggleRefunded('${esc(x.id)}', this.checked)">
+            Refunded
+          </label>
+          <label class="ordered-toggle review-toggle">
+            <input type="checkbox" ${x.reviewRequested ? "checked" : ""}
+              onchange="toggleReviewRequested('${esc(x.id)}', this.checked)">
+            Review requested
           </label>
         </div>
       `).join("")

@@ -62,14 +62,8 @@
     <div><h2>Contacts</h2><p>Names and WhatsApp numbers</p></div>
     <button class="primary" id="addContact">＋ Add</button>
   </div>
-  <div class="hint" id="contactsTotal" style="font-weight:800;margin:8px 0">0 contacts</div>
   <input id="contactSearch" class="search" placeholder="Search name or number">
   <div id="contactsList"></div>
-</section>
-
-<section id="refunds" class="page">
-  <div class="sectionhead"><div><h2>Refund Register</h2><p>Track refunds by recipient and product</p></div></div>
-  <div id="refundsApp"></div>
 </section>
 
 <section id="products" class="page">
@@ -236,7 +230,6 @@
 <nav class="tabbar">
   <button data-page="dashboard">⌂<span>Home</span></button>
   <button data-page="contacts">♙<span>Contacts</span></button>
-  <button data-page="refunds">₹<span>Refunds</span></button>
   <button data-page="products">▣<span>Products</span></button>
   <button data-page="send">↗<span>Send</span></button>
   <button data-page="history">◷<span>History</span></button>
@@ -256,7 +249,6 @@
 
 <!-- Keep app.js first: it owns the existing dealDhamakaAgentV2 local-storage data. -->
 <script src="app.js"></script>
-<script src="refunds.js"></script>
 <script src="whatsapp-enhancements.js"></script>
 <!-- One consolidated executive dashboard. Detailed filters and tables remain in Tracking. -->
 <script src="dashboard.js"></script>
