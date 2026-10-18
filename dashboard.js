@@ -56,6 +56,13 @@
   .dash-empty{padding:15px 4px;color:#8a94a8;font-size:11px;text-align:center;line-height:1.5}
   .dashboard-data-shortcuts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:11px}.dashboard-data-shortcuts button{display:grid;grid-template-columns:28px minmax(0,1fr);grid-template-rows:auto auto;align-items:center;text-align:left;column-gap:8px;border:1px solid #e8ecf4;background:#fff;border-radius:13px;padding:11px;min-width:0}.dashboard-data-shortcuts button>span{grid-row:1/3;display:grid;place-items:center;background:#eef1ff;color:#4f6bed;width:28px;height:28px;border-radius:9px;font-size:15px}.dashboard-data-shortcuts b{font-size:11px;color:#2b3651}.dashboard-data-shortcuts small{font-size:9px;color:#8a94a8;margin-top:3px}
   .dashboard-hidden-stats{display:none!important}
+  .dash-refund-card{display:flex;align-items:center;gap:13px;margin-top:10px;padding:14px 16px;border-radius:16px;border:1px solid #f5d9c4;background:linear-gradient(115deg,#fff7ed,#fff 75%);box-shadow:0 4px 14px #9a5b1910;position:relative;overflow:hidden}
+  .dash-refund-icon{width:42px;height:42px;border-radius:13px;background:#ffead8;color:#b45309;display:grid;place-items:center;font-size:23px;flex:0 0 auto}
+  .dash-refund-copy{flex:1;min-width:0}.dash-refund-label{font-size:10px;font-weight:850;letter-spacing:.5px;color:#9a5b27}.dash-refund-value{font-size:clamp(22px,5vw,29px);font-weight:900;letter-spacing:-.7px;color:#8f3f12;margin:4px 0}.dash-refund-note{font-size:10px;line-height:1.4;color:#a17d62}.dash-refund-count{padding:6px 9px;border-radius:20px;background:#ffead8;color:#9a4a13;font-size:10px;font-weight:850;white-space:nowrap}
+  .contact-total-card{display:flex;align-items:center;gap:12px;margin:14px 0 12px;padding:13px 15px;border:1px solid #e2e9f7;border-radius:15px;background:linear-gradient(110deg,#eef2ff,#fff 78%);box-shadow:0 4px 12px #26365b08}
+  .contact-total-icon{display:grid;place-items:center;width:39px;height:39px;border-radius:12px;background:#dfe7ff;color:#405bd1;font-size:22px;flex:0 0 auto}
+  .contact-total-card div{display:flex;flex-direction:column;gap:2px}.contact-total-card small{font-size:9px;letter-spacing:.8px;font-weight:850;color:#7784a0}.contact-total-card strong{font-size:24px;line-height:1.1;color:#1b2744}.contact-total-caption{margin-left:auto;color:#8792aa;font-size:10px;font-weight:700}
+  
   @media(min-width:650px){.dashboard-welcome{padding:25px 27px}.dashboard-welcome h2{font-size:30px}.dashboard-welcome p{font-size:13px}.dashboard-overview-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.dash-kpi{padding:16px}.dash-section{padding:18px;margin-top:13px}.dash-charts-grid{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(280px,1fr);gap:13px}.dash-lower-grid{display:grid;grid-template-columns:1fr 1fr;gap:13px}.dashboard-data-shortcuts{grid-template-columns:repeat(4,minmax(0,1fr))}.dash-insights{grid-template-columns:repeat(4,minmax(0,1fr))}}
   `;
   document.head.appendChild(style);
@@ -120,6 +127,8 @@
     const host=$("advancedDashboard"); if(!host || typeof state==="undefined") return;
     const data=readData(), allShares=data.shares, selected=allShares.filter(matchesPeriod), ordered=selected.filter(s=>s.ordered), pending=selected.filter(s=>!s.ordered);
     const sharedValue=selected.reduce((n,s)=>n+s._price,0), orderedValue=ordered.reduce((n,s)=>n+s._price,0), pendingValue=pending.reduce((n,s)=>n+s._price,0);
+    const refundedRows=selected.filter(s=>s.refunded);
+    const refundedValue=refundedRows.reduce((n,s)=>n+Math.max(0,Number(s.refundAmount ?? s.priceSnapshot ?? s._price)||0),0);
     const allotted=data.products.reduce((n,p)=>n+Math.max(0,Number(p.allottedQty)||0),0);
     const allottedValue=data.products.reduce((n,p)=>n+Math.max(0,Number(p.allottedQty)||0)*Math.max(0,Number(p.price)||0),0);
     const allOrdered=allShares.filter(s=>s.ordered).length, conversion=allShares.length?Math.round(allOrdered/allShares.length*100):0;
@@ -151,6 +160,7 @@
         ${kpi("PENDING ORDER VALUE",money(pendingValue),`${pending.length} share record(s) awaiting order status`,"◷",palette.amber,"#fff4e2")}
         ${kpi("ALLOTTED VALUE",money(allottedValue),`${qty(allotted)} units allotted · current product prices`,"▦",palette.ink,"#edf0f7")}
       </div>
+      <div class="dash-refund-card" role="group" aria-label="Refunded amount summary"><span class="dash-refund-icon">↩</span><div class="dash-refund-copy"><div class="dash-refund-label">REFUNDED AMOUNT</div><div class="dash-refund-value">${money(refundedValue)}</div><div class="dash-refund-note">${refundedRows.length} refunded record(s) · selected period</div></div><span class="dash-refund-count">${refundedRows.length} REFUND${refundedRows.length===1?"":"S"}</span></div>
       ${section("Share & order activity","Trend for the selected reporting period",trendChart(selected),period==="all"?"ALL TIME":period.toUpperCase())}
       ${section("Inventory & conversion","All-time quantities and order progress",conversionHTML)}
       <div class="dash-charts-grid">

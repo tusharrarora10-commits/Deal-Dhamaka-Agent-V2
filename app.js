@@ -415,6 +415,8 @@ function bindItemActions(type) {
 }
 
 function renderContacts() {
+  const totalContactCount = $("totalContactCount");
+  if (totalContactCount) totalContactCount.textContent = state.contacts.length.toLocaleString("en-IN");
   const q = $("contactSearch").value.toLowerCase();
 
   const a = state.contacts.filter(x =>
