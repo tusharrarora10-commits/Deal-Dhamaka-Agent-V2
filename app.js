@@ -471,20 +471,18 @@ function openContactTimeline(contactId) {
         <div class="ct-kpi purple"><strong>${reviewCount}</strong><span>Review pending</span></div>
       </div>
       <div class="ct-controls"><input class="ct-search" type="search" placeholder="Filter by product or status" aria-label="Filter timeline"><select class="ct-product-filter" aria-label="Filter by product"><option value="">All products</option>${[...new Set(rows.map(r => r.productName || r.brand || "Unknown product"))].map(n => `<option>${esc(n)}</option>`).join("")}</select></div>
-      <div class="ct-table-wrap"><table class="ct-table"><thead><tr><th>Date</th><th>Product</th><th>Shared</th><th>Ordered</th><th>Review</th><th>Status</th></tr></thead><tbody>
+      <div class="ct-table-wrap"><table class="ct-table"><thead><tr><th>📅 Date</th><th>🛍️ Product</th><th>↗ Shared</th><th>✓ Ordered</th></tr></thead><tbody>
       ${rows.length ? rows.map(r => {
         const product = state.products.find(p => String(p.id) === String(r.productId));
         const date = r.time ? new Date(Number(r.time)) : null;
         const review = r.reviewStatus || "pending";
         return `<tr data-share-row="${esc(r.id)}" data-product-name="${esc(r.productName || r.brand || "Unknown product")}" data-search="${esc([r.productName,r.brand,r.productType,r.status,r.ordered ? "ordered" : "pending",review].join(" ").toLowerCase())}">
           <td><strong>${date && !isNaN(date) ? date.toLocaleDateString("en-IN", {day:"2-digit",month:"short",year:"numeric"}) : "—"}</strong><small>${date && !isNaN(date) ? date.toLocaleTimeString("en-IN", {hour:"2-digit",minute:"2-digit"}) : ""}</small></td>
-          <td><strong>${esc(r.brand || product?.brand || "")}</strong><small>${esc(r.productName || product?.name || "Unknown product")}</small></td>
-          <td><span class="ct-icon shared-icon">●</span><small>${date && !isNaN(date) ? date.toLocaleTimeString("en-IN", {hour:"2-digit",minute:"2-digit"}) : "Shared"}</small></td>
-          <td><select class="ct-edit-order" data-share-id="${esc(r.id)}" aria-label="Order status for ${esc(r.productName || r.brand)}"><option value="pending" ${!r.ordered ? "selected" : ""}>Pending</option><option value="ordered" ${r.ordered ? "selected" : ""}>Ordered</option></select><small>${r.orderedAt ? new Date(r.orderedAt).toLocaleDateString("en-IN", {day:"2-digit",month:"short"}) : ""}</small></td>
-          <td><select class="ct-edit-review" data-share-id="${esc(r.id)}" aria-label="Review status for ${esc(r.productName || r.brand)}"><option value="pending" ${review !== "done" ? "selected" : ""}>Pending</option><option value="done" ${review === "done" ? "selected" : ""}>Done</option></select></td>
-          <td><span class="ct-status ${r.ordered ? "is-ordered" : "is-pending"}">${r.ordered ? "Ordered" : "Pending"}</span></td>
+          <td class="ct-product-cell"><span class="ct-brand-pill">${esc(r.brand || product?.brand || "Deal")}</span><strong>${esc(r.productName || product?.name || "Unknown product")}</strong><small>Review: <select class="ct-edit-review ct-review-inline" data-share-id="${esc(r.id)}" aria-label="Review status for ${esc(r.productName || r.brand)}"><option value="pending" ${review !== "done" ? "selected" : ""}>Pending</option><option value="done" ${review === "done" ? "selected" : ""}>Done</option></select></small></td>
+          <td><span class="ct-shared-badge"><span class="ct-shared-check">✓</span> Shared</span><small>${date && !isNaN(date) ? date.toLocaleTimeString("en-IN", {hour:"2-digit",minute:"2-digit"}) : "Time not recorded"}</small></td>
+          <td><select class="ct-edit-order ${r.ordered ? "is-ordered" : "is-pending"}" data-share-id="${esc(r.id)}" aria-label="Order status for ${esc(r.productName || r.brand)}"><option value="pending" ${!r.ordered ? "selected" : ""}>⏳ Pending</option><option value="ordered" ${r.ordered ? "selected" : ""}>✓ Ordered</option></select><small>${r.orderedAt ? new Date(r.orderedAt).toLocaleDateString("en-IN", {day:"2-digit",month:"short"}) : "Update status above"}</small></td>
         </tr>`;
-      }).join("") : '<tr><td colspan="6" class="ct-empty">No saved share history for this recipient yet.</td></tr>'}
+      }).join("") : '<tr><td colspan="4" class="ct-empty">No saved share history for this recipient yet.</td></tr>'}
       </tbody></table></div>
       <footer class="ct-foot">Changes save automatically. “Shared” means the app opened WhatsApp; it does not confirm message delivery.</footer>
     </section>`;
