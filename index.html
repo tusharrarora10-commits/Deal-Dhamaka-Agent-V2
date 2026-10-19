@@ -78,35 +78,34 @@
 
 <section id="send" class="page">
   <div class="sectionhead">
-    <div><h2>Send WhatsApp</h2><p>Choose multiple contacts and products</p></div>
+    <div><h2>Send WhatsApp</h2><p>Choose brand, products, then eligible contacts</p></div>
+  </div>
+  <div class="card">
+    <div class="selection-head"><h3>1. Select Brand</h3><button class="mini" id="clearSendBrand" type="button">All Brands</button></div>
+    <select id="sendBrandFilter" class="search" aria-label="Filter products by brand">
+      <option value="">All brands</option>
+    </select>
+    <p class="hint">Choose a brand first to narrow the product list and eligible contacts.</p>
   </div>
   <div class="card">
     <div class="selection-head">
-      <h3>Select Contacts</h3>
-      <div>
-        <button class="mini" id="allContacts">All</button>
-        <button class="mini" id="clearContacts">Clear</button>
-      </div>
-    </div>
-    <input id="sendContactSearch" class="search" placeholder="Find contact">
-    <div id="sendContacts" class="checklist"></div>
-  </div>
-  <div class="card">
-    <div class="selection-head">
-      <h3>Select Products</h3>
-      <div>
-        <button class="mini" id="allProducts">All</button>
-        <button class="mini" id="clearProducts">Clear</button>
-      </div>
+      <h3>2. Select Products</h3>
+      <div><button class="mini" id="allProducts" type="button">All</button><button class="mini" id="clearProducts" type="button">Clear</button></div>
     </div>
     <input id="sendProductSearch" class="search" placeholder="Find product">
     <div id="sendProducts" class="checklist"></div>
   </div>
   <div class="card">
+    <div class="selection-head">
+      <h3>3. Select Eligible Contacts</h3>
+      <div><button class="mini" id="allContacts" type="button">All</button><button class="mini" id="clearContacts" type="button">Clear</button></div>
+    </div>
+    <input id="sendContactSearch" class="search" placeholder="Find contact">
+    <div id="sendContacts" class="checklist"></div>
+  </div>
+  <div class="card">
     <h3>Message Preview</h3>
-    <label>Message
-      <textarea id="message" rows="9" placeholder="Select one contact and one product to preview a message"></textarea>
-    </label>
+    <label>Message<textarea id="message" rows="9" placeholder="Select one contact and one product to preview a message"></textarea></label>
     <p class="hint">For bulk sharing, the app opens one WhatsApp chat at a time. You must tap Send in WhatsApp, then return here and tap the next button.</p>
     <div id="batchInfo" class="notice">Select contacts and products to begin.</div>
     <button id="openNext" class="whatsapp big" disabled>Open Next WhatsApp</button>

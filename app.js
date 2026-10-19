@@ -853,6 +853,7 @@ document.head.appendChild(quantityStyle);
 function renderSendLists() {
   const cq = $("sendContactSearch").value.toLowerCase();
   const pq = $("sendProductSearch").value.toLowerCase();
+  const brandFilter = $("sendBrandFilter")?.value || "";
 
   // Existing products without a status are considered active.
   // Only explicitly closed deals are hidden from the Send selector.
@@ -860,10 +861,18 @@ function renderSendLists() {
     p => p.dealStatus !== "closed"
   );
 
-  const activeProductIds = new Set(
-    activeProducts.map(p => String(p.id))
-  );
+  const brands = [...new Set(activeProducts.map(p => String(p.brand || p.name || "").trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  const brandSelect = $("sendBrandFilter");
+  if (brandSelect) {
+    const previousBrand = brandSelect.value;
+    brandSelect.innerHTML = '<option value="">All brands</option>' + brands.map(b => `<option value="${esc(b)}">${esc(b)}</option>`).join("");
+    brandSelect.value = brands.includes(brandFilter) ? brandFilter : "";
+    if (previousBrand !== brandSelect.value && brandFilter && !brands.includes(brandFilter)) selectedProducts = new Set();
+  }
+  const brandProducts = activeProducts.filter(p => !brandFilter || String(p.brand || p.name || "").trim() === brandFilter);
+  const activeProductIds = new Set(brandProducts.map(p => String(p.id)));
 
+  // Keep selected products within the chosen brand so filters never conflict.
   selectedProducts = new Set(
     [...selectedProducts].map(String).filter(id => activeProductIds.has(id))
   );
@@ -875,13 +884,15 @@ function renderSendLists() {
       .map(s => String(s.contactId) + "::" + String(s.productId))
   );
 
-  // When products have been selected, only show contacts eligible for
-  // at least one selected product. With no selected products, show all contacts.
+  // Chronology: brand -> products -> contacts. Contacts are filtered against
+  // selected products; if only a brand is selected, use every active product in that brand.
   const selectedProductIds = [...selectedProducts];
+  const relevantProductIds = selectedProductIds.length
+    ? selectedProductIds
+    : (brandFilter ? brandProducts.map(p => String(p.id)) : []);
   const eligibleContacts = state.contacts.filter(c => {
-    if (!selectedProductIds.length) return true;
-
-    return selectedProductIds.some(productId =>
+    if (!relevantProductIds.length) return true;
+    return relevantProductIds.some(productId =>
       !previouslyShared.has(String(c.id) + "::" + String(productId))
     );
   });
@@ -895,7 +906,7 @@ function renderSendLists() {
     [...selectedContacts].map(String).filter(id => eligibleContactIds.has(id))
   );
 
-  $("sendProducts").innerHTML = activeProducts
+  $("sendProducts").innerHTML = brandProducts
     .filter(p =>
       (p.name + " " + p.brand + " " + p.productType)
         .toLowerCase()
@@ -1047,6 +1058,17 @@ $("clearProducts").onclick = () => {
 
 $("sendContactSearch").oninput = renderSendLists;
 $("sendProductSearch").oninput = renderSendLists;
+$("sendBrandFilter").onchange = () => {
+  selectedProducts = new Set();
+  selectedContacts = new Set();
+  rebuildBatchFromSelections();
+};
+$("clearSendBrand").onclick = () => {
+  $("sendBrandFilter").value = "";
+  selectedProducts = new Set();
+  selectedContacts = new Set();
+  rebuildBatchFromSelections();
+};
 
 function updateBatchUI() {
   const valid = batch.filter(x => x.contactId && x.productId);
