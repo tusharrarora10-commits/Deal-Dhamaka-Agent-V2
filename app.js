@@ -257,14 +257,18 @@ function addContact(x) {
       </label>
 
       <label>Amazon Profile Link
-        <input
-          name="amazonProfileUrl"
-          type="url"
-          inputmode="url"
-          placeholder="https://www.amazon.in/gp/profile/..."
-          value="${esc(x.amazonProfileUrl || x.amazonProfile || "")}" 
-        >
-        <small class="muted">Paste the contact’s public Amazon profile URL to open their public reviews.</small>
+        <div class="amazon-profile-input-row">
+          <input
+            name="amazonProfileUrl"
+            id="amazonProfileUrlInput"
+            type="url"
+            inputmode="url"
+            placeholder="https://amzn.in/d/... or https://www.amazon.in/gp/profile/..."
+            value="${esc(x.amazonProfileUrl || x.amazonProfile || "")}" 
+          >
+          <button class="mini amazon-copy-icon" type="button" onclick="copyAmazonProfileInput()" aria-label="Copy Amazon profile link" title="Copy link">📋</button>
+        </div>
+        <small class="muted">Paste the contact’s original public Amazon profile link, including amzn.in short links. Use the copy icon to copy the link in this field.</small>
       </label>
 
       <label>Category
@@ -286,8 +290,11 @@ function addContact(x) {
       if (obj.amazonProfileUrl) {
         try {
           const profileUrl = new URL(obj.amazonProfileUrl);
-          if (profileUrl.protocol !== "https:" || !/(^|\.)amazon\.(in|com|co\.uk|ca|com\.au|de|fr|it|es|co\.jp|com\.mx|com\.br|nl|sg|ae|sa|se|pl|tr)$/i.test(profileUrl.hostname)) {
-            alert("Please enter a valid HTTPS Amazon profile URL (for example, https://www.amazon.in/gp/profile/...).");
+          const host = profileUrl.hostname.toLowerCase();
+          const isAmazonHost = /(^|\.)amazon\.(in|com|co\.uk|ca|com\.au|de|fr|it|es|co\.jp|com\.mx|com\.br|nl|sg|ae|sa|se|pl|tr)$/i.test(host);
+          const isAmazonShortHost = /(^|\.)(amzn\.in|amzn\.to)$/i.test(host);
+          if (profileUrl.protocol !== "https:" || (!isAmazonHost && !isAmazonShortHost)) {
+            alert("Please enter an HTTPS Amazon profile link. Amazon short links such as https://amzn.in/d/... are also accepted.");
             return;
           }
         } catch (_) {
@@ -488,6 +495,41 @@ function bindItemActions(type) {
       renderContacts(); renderProducts(); renderSendLists(); renderHistory(); renderTracking();
     };
   });
+}
+
+async function copyAmazonProfileInput() {
+  const input = document.getElementById("amazonProfileUrlInput");
+  const url = String(input?.value || "").trim();
+  if (!url) {
+    alert("Paste an Amazon profile link first.");
+    input?.focus();
+    return;
+  }
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(url);
+    } else {
+      const field = document.createElement("textarea");
+      field.value = url;
+      field.setAttribute("readonly", "");
+      field.style.position = "fixed";
+      field.style.opacity = "0";
+      document.body.appendChild(field);
+      field.select();
+      const copied = document.execCommand("copy");
+      field.remove();
+      if (!copied) throw new Error("Copy unavailable");
+    }
+    const button = document.querySelector(".amazon-copy-icon");
+    if (button) {
+      const old = button.textContent;
+      button.textContent = "✓";
+      button.setAttribute("aria-label", "Link copied");
+      setTimeout(() => { if (button.isConnected) { button.textContent = old; button.setAttribute("aria-label", "Copy Amazon profile link"); } }, 1400);
+    }
+  } catch (_) {
+    window.prompt("Copy Amazon profile link:", url);
+  }
 }
 
 function renderContacts() {
