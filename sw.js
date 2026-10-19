@@ -1,7 +1,7 @@
 /* Deal Dhamaka Agent V2 — conservative offline cache.
    Dashboard visuals only; preserve app storage and all existing workflows.
    Do not delete unrelated caches on this origin during activation. */
-const CACHE = 'deal-dhamaka-v14-crm-enhancements';
+const CACHE = 'deal-dhamaka-v15-product-search-autocomplete';
 
 const ASSETS = [
   './',
@@ -19,7 +19,8 @@ const ASSETS = [
   './product-status.js',
   './analytics.js',
   './recipient-timeline.js',
-  './manifest.json'
+  './manifest.json',
+  './product-search-autocomplete.js'
 ];
 
 self.addEventListener('install', event => {

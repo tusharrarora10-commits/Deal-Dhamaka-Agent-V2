@@ -519,3 +519,14 @@ input[type=date],input[type=datetime-local],input[type=time]{
 /* Fix the actual Clear selection ID used by bulk-followups.js. */
 #bulkFollowupClear{background:linear-gradient(135deg,#263d60,#1b2c46)!important;color:#f8fbff!important;border:1px solid #46658d!important;box-shadow:0 4px 12px #0002!important;}
 #bulkFollowupClear:disabled{background:#202d40!important;color:#aebed4!important;border-color:#35465e!important;opacity:1!important;}
+
+
+/* Product autocomplete: readable dark dropdown, positioned above page content and iOS keyboard. */
+.product-search-suggestions{position:fixed;z-index:10050;overflow-y:auto;overscroll-behavior:contain;background:#101a2b;color:#f8fafc;border:1px solid #52709a;border-radius:14px;box-shadow:0 14px 36px #0009;padding:5px;}
+.product-search-suggestions[hidden]{display:none!important}
+.product-suggest-option{display:flex;flex-direction:column;align-items:flex-start;gap:3px;width:100%;padding:12px 13px;margin:0;border:0;border-bottom:1px solid #2b3b54;border-radius:9px;background:transparent;color:#f8fafc;text-align:left;font:inherit;cursor:pointer;}
+.product-suggest-option:last-child{border-bottom:0}
+.product-suggest-option:active,.product-suggest-option[aria-selected="true"]{background:#244778;color:#fff;outline:1px solid #6ea8ff}
+.product-suggest-name{font-weight:800;font-size:14px;line-height:1.35;color:#fff;overflow-wrap:anywhere}
+.product-suggest-meta{font-size:12px;line-height:1.35;color:#c5d4e9;overflow-wrap:anywhere}
+.product-suggest-empty{padding:14px;color:#e2eaf6;font-weight:650}
