@@ -223,3 +223,299 @@ body{background:#f5f7fb;color:#18213b;font-size:13px;padding-bottom:84px}
 .contact-timeline-panel{background:#fff;color:#18213b;width:min(1100px,100%);max-height:92vh;overflow:auto;border-radius:24px;padding:22px;box-shadow:0 24px 80px rgba(5,14,40,.28)}
 .ct-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:20px}.ct-head h2{margin:5px 0;font-size:clamp(22px,3vw,32px);line-height:1.15}.ct-head p{margin:4px 0;color:#77829b}.ct-kicker{font-size:11px;font-weight:800;letter-spacing:3px;color:#7783a2}.ct-close{border:0;border-radius:50%;background:#edf1f7;color:#347ef4;font-size:30px;width:48px;height:48px;flex:0 0 auto;cursor:pointer}.ct-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:18px}.ct-kpi{border-radius:17px;padding:15px 10px;display:flex;flex-direction:column;align-items:center;gap:5px}.ct-kpi strong{font-size:27px;line-height:1.1}.ct-kpi span{font-size:13px;text-align:center}.ct-kpi.blue{background:#e8f3ff;color:#2879df}.ct-kpi.green{background:#e8f8ee;color:#23934e}.ct-kpi.amber{background:#fff6df;color:#b47b05}.ct-kpi.purple{background:#f1e9ff;color:#8b42dc}.ct-controls{display:grid;grid-template-columns:minmax(0,1fr) minmax(160px,240px);gap:10px;margin:12px 0 16px}.ct-controls input,.ct-controls select{min-width:0;width:100%;padding:13px 14px;border:1px solid #dfe5ef;border-radius:13px;background:#fff;color:#25304a;font:inherit}.ct-table-wrap{width:100%;overflow:auto;border:1px solid #e6eaf2;border-radius:16px}.ct-table{width:100%;border-collapse:separate;border-spacing:0;min-width:540px;font-size:13px}.ct-table th{background:linear-gradient(135deg,#eaf2ff,#edf8f1);color:#34415d;text-align:left;font-weight:850;padding:14px 12px;white-space:nowrap}.ct-table th:first-child{border-top-left-radius:14px}.ct-table th:last-child{border-top-right-radius:14px}.ct-table td{padding:14px 12px;border-top:1px solid #edf0f5;vertical-align:middle}.ct-table tr:nth-child(even) td{background:#f8faff}.ct-table tbody tr:hover td{background:#eef6ff}.ct-table td strong,.ct-table td small{display:block}.ct-table td small{font-size:11px;color:#78839a;margin-top:5px}.ct-table select{max-width:140px;padding:8px 9px;border:1px solid #dbe3ef;border-radius:10px;background:#fff;font:inherit;font-weight:800;color:#26334d}.ct-table select.is-ordered{background:#e6f8ed;border-color:#b7e8c7;color:#176b39}.ct-table select.is-pending{background:#fff5dc;border-color:#f3df9b;color:#875e08}.ct-product-cell>strong{margin-top:7px;line-height:1.35}.ct-brand-pill{display:inline-block;padding:4px 8px;border-radius:8px;background:#e9efff;color:#3455b4;font-size:10px;font-weight:850}.ct-review-inline{max-width:105px!important;padding:4px 6px!important;font-size:10px!important}.ct-shared-badge{display:inline-flex;align-items:center;gap:6px;background:#e5f8ed;color:#177344;padding:7px 10px;border-radius:999px;font-size:11px;font-weight:850;white-space:nowrap}.ct-shared-check{display:inline-grid;place-items:center;width:17px;height:17px;border-radius:50%;background:#1fa463;color:white;font-size:11px}.ct-status{display:inline-block;border-radius:10px;padding:8px 10px;font-weight:800;white-space:nowrap}.ct-status.is-ordered{background:#dcf8e6;color:#216d3b}.ct-status.is-pending{background:#fff1c4;color:#805b08}.ct-empty{text-align:center;color:#77829b;padding:28px!important}.ct-foot{font-size:12px;color:#7a8499;margin-top:14px;line-height:1.5}
 @media(max-width:600px){.contact-timeline-overlay{padding:0;align-items:flex-end}.contact-timeline-panel{max-height:91vh;border-radius:24px 24px 0 0;padding:18px 14px}.ct-kpis{gap:7px}.ct-kpi{padding:12px 5px}.ct-kpi strong{font-size:23px}.ct-kpi span{font-size:11px}.ct-controls{grid-template-columns:1fr}.ct-head h2{font-size:23px}}
+
+/* FULL-APP DARK MODE — all tabs, forms, dialogs, filters and generated records.
+   This layer intentionally follows the existing styles so every screen shares
+   the same dark palette without changing markup, storage, or application logic. */
+:root{
+  color-scheme:dark;
+  --ink:#e5edf9;--muted:#9aa9bf;--bg:#080d18;--white:#111a2a;
+  --blue:#7aa2ff;--green:#34d399;--red:#fb7185;--line:#29364b;
+  --surface:#111a2a;--surface-raised:#172236;--surface-soft:#0d1524;
+  --border:#29364b;--text:#e5edf9;--text-muted:#9aa9bf;
+}
+html,body{background:#080d18!important;color:#e5edf9!important;color-scheme:dark;}
+body{background:radial-gradient(ellipse at 50% -18%,#182746 0,#080d18 58%) fixed!important;}
+main{background:transparent!important;}
+.topbar{background:linear-gradient(110deg,#0c1424,#111d33 70%,#17264a)!important;color:#f8fafc!important;border-bottom:1px solid #273650;box-shadow:0 6px 24px #0005!important;}
+.eyebrow{color:#9fb8ff!important;}
+.page{background:transparent!important;color:#e5edf9!important;}
+.page:not(#dashboard){color:#e5edf9!important;}
+.sectionhead h2,.card h3,.item h3,.modalhead h3,.detail-card h4,.selection-head h3,.selection-head h3 *{color:#f1f5f9!important;}
+.sectionhead p,.item p,.hint,.report-empty,.detail-card p,.empty{color:#9aa9bf!important;}
+.card,.item,.empty,.contact-total-card,#productDealOverview,.tracking-filter-card,.selection-head,
+#contactsList .item,#productsList .item,#historyList .item,#trackingList .item,#refundsList .item,
+#contactsList .card,#productsList .card,#historyList .card,#trackingList .card,#refundsList .card{
+ background:#111a2a!important;color:#e5edf9!important;border:1px solid #29364b!important;
+ box-shadow:0 8px 22px #0002!important;
+}
+.contact-total-card{background:linear-gradient(115deg,#14213a,#111a2a 80%)!important;border-color:#2b3b59!important;}
+.contact-total-card small,.contact-total-caption{color:#9aa9bf!important;}
+.contact-total-card strong{color:#f8fafc!important;}
+.contact-total-icon{background:#22365c!important;color:#9fc0ff!important;}
+.primary{background:linear-gradient(135deg,#3156a5,#24417f)!important;color:#f8fbff!important;border:1px solid #4266b1!important;}
+.secondary,.mini,.undo-redo-bar button{background:#202d43!important;color:#dbe7fb!important;border:1px solid #34445e!important;}
+.danger,#historyList .delete-history{background:#3a1d2a!important;color:#fda4af!important;border:1px solid #693044!important;}
+.whatsapp{background:#087b55!important;color:#f0fff8!important;border:1px solid #15976a!important;}
+button{ -webkit-tap-highlight-color:transparent; }
+button:focus-visible,a:focus-visible{outline:2px solid #7aa2ff!important;outline-offset:2px;}
+.search,input,select,textarea,.multi-filter summary,.multi-filter .filter-options,.filter-option{
+ background:#0d1626!important;color:#e5edf9!important;border-color:#34445c!important;
+}
+input::placeholder,textarea::placeholder{color:#7586a0!important;opacity:1;}
+input:focus,select:focus,textarea:focus,.search:focus{outline:2px solid #7aa2ff40!important;border-color:#7098ff!important;}
+input[type=checkbox],input[type=radio],input[type=range]{accent-color:#7aa2ff;}
+label{color:#d7e1f2!important;}
+.checkrow{border-bottom-color:#29364b!important;color:#dbe5f5!important;}
+.checkrow small{color:#91a0b8!important;}
+.notice{background:#10352d!important;color:#8af0c5!important;border:1px solid #1e604e!important;}
+.badge{background:#202d43!important;color:#d2def2!important;border:1px solid #34445c!important;}
+.report-row,.detail-card{border-color:#29364b!important;color:#dbe5f5!important;}
+.report-row strong{color:#f1f5f9!important;}
+.tabbar{background:rgba(12,19,32,.97)!important;border-top:1px solid #29364b!important;box-shadow:0 -8px 28px #0006!important;backdrop-filter:blur(18px);}
+.tabbar button{color:#8494ad!important;}
+.tabbar button.active{color:#9db9ff!important;}
+.tabbar button.active span{color:#c9d9ff!important;}
+.modal{background:rgba(0,0,0,.72)!important;backdrop-filter:blur(5px);}
+.modalbox{background:#101827!important;color:#e5edf9!important;border:1px solid #2b3a51!important;box-shadow:0 20px 70px #0009!important;}
+.modalhead button{background:#202d43!important;color:#e5edf9!important;border:1px solid #34445c!important;}
+.filelabel{background:#1b2940!important;color:#dbe7fb!important;border:1px solid #34445c!important;}
+.ordered-toggle{background:#10352d!important;color:#8af0c5!important;border:1px solid #1e604e!important;}
+.multi-filter[open] summary{border-color:#7098ff!important;}
+.multi-filter[open] .filter-options{border-color:#7098ff!important;background:#0d1626!important;box-shadow:0 12px 28px #0008!important;}
+.filter-option{border-bottom-color:#26344a!important;}
+.filter-option:hover{background:#17243a!important;}
+.deal-overview-grid>div{background:#14213a!important;border-color:#2b3b59!important;}
+.deal-overview-grid b{color:#9fc0ff!important;}
+.deal-overview-grid span{color:#a7b5ca!important;}
+#productDealOverview{background:#111a2a!important;border-color:#29364b!important;}
+#productDealFilter label{color:#dbe5f5!important;}
+#productDealFilter input[type=radio]{accent-color:#7aa2ff;}
+#historyList .delete-history{background:#3a1d2a!important;color:#fda4af!important;}
+
+/* Darken the recipient timeline overlay and its generated table as well. */
+.contact-timeline-overlay{background:rgba(0,0,0,.76)!important;}
+.contact-timeline-panel{background:#101827!important;color:#e5edf9!important;border:1px solid #2b3a51!important;box-shadow:0 24px 80px #000b!important;}
+.ct-head h2,.ct-table td,.ct-table td strong{color:#e5edf9!important;}
+.ct-head p,.ct-kicker,.ct-table td small,.ct-foot{color:#9aa9bf!important;}
+.ct-close{background:#202d43!important;color:#9fc0ff!important;}
+.ct-controls input,.ct-controls select,.ct-table select{background:#0d1626!important;color:#e5edf9!important;border-color:#34445c!important;}
+.ct-table-wrap{border-color:#29364b!important;}
+.ct-table th{background:linear-gradient(135deg,#1b2b46,#17342f)!important;color:#dce8fb!important;}
+.ct-table td{border-top-color:#29364b!important;background:#111a2a!important;}
+.ct-table tr:nth-child(even) td{background:#142035!important;}
+.ct-table tbody tr:hover td{background:#1a2a43!important;}
+.ct-kpi.blue{background:#172b48!important;color:#93c5fd!important;}
+.ct-kpi.green{background:#12372e!important;color:#6ee7b7!important;}
+.ct-kpi.amber{background:#3a2d16!important;color:#fcd34d!important;}
+.ct-kpi.purple{background:#2b2147!important;color:#c4b5fd!important;}
+.ct-table select.is-ordered,.ct-status.is-ordered{background:#12372e!important;border-color:#236b52!important;color:#6ee7b7!important;}
+.ct-table select.is-pending,.ct-status.is-pending{background:#3a2d16!important;border-color:#7b5b25!important;color:#fcd34d!important;}
+.ct-shared-badge{background:#12372e!important;color:#6ee7b7!important;}
+.ct-brand-pill{background:#1b2b4b!important;color:#a9c4ff!important;}
+
+/* Dashboard charts, insights, alerts and shortcut buttons match the full-app theme. */
+#dashboard .dashboard-shell{color:#e5edf9!important;}
+#dashboard .dashboard-periodbar,#dashboard .dashboard-period-control{color:#9aa9bf!important;}
+#dashboard .dash-insight{background:#172236!important;border-color:#29364b!important;}
+#dashboard .dash-insight span,#dashboard .dash-insight small{color:#9aa9bf!important;}
+#dashboard .dash-insight strong{color:#f1f5f9!important;}
+#dashboard .dash-alert{background:#111a2a!important;border-color:#29364b!important;}
+#dashboard .dash-alert-body strong{color:#e5edf9!important;}
+#dashboard .dash-alert-body small{color:#9aa9bf!important;}
+#dashboard .dash-alert button{background:#202d43!important;color:#dbe7fb!important;border:1px solid #34445c!important;}
+#dashboard .dash-rank-title{color:#dbe5f5!important;}
+#dashboard .dash-rank-title span:last-child{color:#9aa9bf!important;}
+#dashboard .dash-rank-track{background:#263449!important;}
+#dashboard .dash-activity{border-bottom-color:#29364b!important;}
+#dashboard .dash-activity-main strong{color:#e5edf9!important;}
+#dashboard .dash-activity-main small{color:#9aa9bf!important;}
+#dashboard .dash-status.ordered{background:#12372e!important;color:#6ee7b7!important;}
+#dashboard .dash-status.pending{background:#3a2d16!important;color:#fcd34d!important;}
+#dashboard .dash-empty{color:#9aa9bf!important;}
+#dashboard .dashboard-data-shortcuts button{background:#111a2a!important;border-color:#29364b!important;color:#e5edf9!important;}
+#dashboard .dashboard-data-shortcuts button>span{background:#1b2b4b!important;color:#a9c4ff!important;}
+#dashboard .dashboard-data-shortcuts b{color:#e5edf9!important;}
+#dashboard .dashboard-data-shortcuts small{color:#9aa9bf!important;}
+#dashboard .dash-refund-card{background:linear-gradient(115deg,#352516,#191a20 80%)!important;border-color:#68472b!important;}
+#dashboard .dash-refund-icon,#dashboard .dash-refund-count{background:#4a301a!important;color:#fdba74!important;}
+#dashboard .dash-refund-label,#dashboard .dash-refund-value{color:#fdba74!important;}
+#dashboard .dash-refund-note{color:#c6a17e!important;}
+#dashboard .contact-total-card{background:linear-gradient(110deg,#14213a,#111a2a 78%)!important;border-color:#293b59!important;}
+#dashboard .contact-total-card strong{color:#f8fafc!important;}
+
+/* Respect readable, distinct state colours while keeping their surfaces dark. */
+.status,.status-badge,.ordered,.is-ordered{color:#6ee7b7;}
+.pending,.is-pending{color:#fcd34d;}
+.error,.invalid{color:#fda4af;}
+::selection{background:#3156a5;color:#fff;}
+.status-table th,.status-table td{border-bottom-color:#29364b!important;color:#dbe5f5!important;}
+.status-table th{background:#172236!important;color:#cbd8ec!important;}
+.status-table tfoot td{border-top-color:#40516b!important;}
+#inventoryOverview .stat{background:#111a2a!important;border:1px solid #29364b!important;color:#e5edf9!important;}
+#inventoryOverview .stat span{color:#9aa9bf!important;}
+
+/* HIGH-CONTRAST DARK MODE PATCH (2026-10-19)
+   Overrides light surfaces injected by feature modules so every tab remains readable. */
+:root{--text:#f1f5ff;--text-muted:#b7c4d9;--muted:#b7c4d9;--line:#34445c;}
+/* Dashboard widgets are injected by dashboard.js and must override its embedded light theme. */
+#dashboard .dashboard-shell,#dashboard .dash-section,#dashboard .dash-kpi,
+#dashboard .dashboard-periodbar,#dashboard .dashboard-period-control,
+#dashboard .dashboard-data-shortcuts button{background:#111a2a!important;color:#f1f5ff!important;border-color:#34445c!important;}
+#dashboard .dashboard-period-control select{background:#0d1626!important;color:#f1f5ff!important;border-color:#455773!important;}
+#dashboard .dash-kpi-label,#dashboard .dash-kpi small,#dashboard .dash-kpi span{color:#bdc9dc!important;}
+#dashboard .dash-kpi strong,#dashboard .dash-kpi-value{color:#f8fbff!important;}
+#dashboard .dashboard-send{background:#3156a5!important;color:#fff!important;}
+/* Dynamically generated bulk follow-up panel. */
+.bulk-followup-card{background:#111a2a!important;color:#f1f5ff!important;border-color:#34445c!important;}
+.bulk-followup-card h1,.bulk-followup-card h2,.bulk-followup-card h3,.bulk-followup-card h4,
+.bulk-followup-card p,.bulk-followup-card label,.bulk-followup-card strong,.bulk-followup-card span{color:#e5edf9;}
+.bulk-followup-card .hint,.bulk-followup-card small,.bulk-followup-card .muted{color:#b7c4d9!important;}
+.bulk-followup-card select,.bulk-followup-card textarea,.bulk-followup-card input[type=search],.bulk-followup-card input:not([type=checkbox]){background:#0d1626!important;color:#f1f5ff!important;border-color:#455773!important;}
+.bulk-followup-card button{color:#f1f5ff;}
+.bulk-followup-card .secondary,.bulk-followup-card .mini{background:#24344d!important;color:#eaf1ff!important;border-color:#405572!important;}
+.bulk-followup-card .primary,.bulk-followup-card button.start-followups{background:#3156a5!important;color:#fff!important;}
+/* Recipient details were still rendered as a white record panel. */
+#recipients .recipient-record,#recipients .recipient-record *{color:#e5edf9;}
+#recipients .recipient-record{background:#111a2a!important;border-bottom:1px solid #34445c!important;}
+#recipients .recipient-record .badge,#recipients .recipient-record .pill{background:#24344d!important;color:#e5edf9!important;border-color:#405572!important;}
+/* Analytics and tracking tables / cards. */
+.analytics-card,.analytics-panel,#analytics .card,#analytics .item{background:#111a2a!important;color:#e5edf9!important;border-color:#34445c!important;}
+.analytics-card h1,.analytics-card h2,.analytics-card h3,.analytics-card p,.analytics-card span{color:#e5edf9;}
+#refunds .refund-table{background:#111a2a!important;color:#e5edf9!important;}
+#refunds .refund-table th{background:#1b2b46!important;color:#f1f5ff!important;}
+#refunds .refund-table td{background:#111a2a!important;color:#e5edf9!important;border-bottom-color:#34445c!important;}
+#refunds .refund-summary-tile{background:#172236!important;border-color:#34445c!important;}
+#refunds .refund-summary-tile span,#refunds .refund-summary-tile b{color:#e5edf9!important;}
+#refunds .refund-pill.shared{background:#1b2b4b!important;color:#a9c4ff!important;}
+#refunds .refund-pill.ordered{background:#12372e!important;color:#6ee7b7!important;}
+/* Any generated content blocks using a generic white surface should inherit readable text. */
+.dark-surface,.generated-panel{background:#111a2a!important;color:#e5edf9!important;border-color:#34445c!important;}
+/* Keep status colours high contrast on their dark backgrounds. */
+.ordered-toggle,.product-ordered,.status-ordered{background:#12372e!important;color:#8af0c5!important;border-color:#236b52!important;}
+.pending-toggle,.status-pending{background:#3a2d16!important;color:#fcd34d!important;border-color:#7b5b25!important;}
+
+
+/* GLOBAL DARK-MODE LEGIBILITY PASS — fixes light KPI tiles and washed-out disabled controls. */
+:root{--ink:#f1f5ff;--muted:#b7c4d9;--bg:#080d18;--white:#111a2a;--line:#34445c;}
+/* KPI/stat tiles were still inheriting white backgrounds in Tracking and Recipients. */
+.stat,.stats .stat,.stats>div,.kpi,.kpi-card,.metric-card,.summary-card,
+#tracking .stat,#tracking .stats>div,#recipients .stat,#recipients .stats>div,
+#tracking .kpi,#recipients .kpi,.tracking-summary>div,.recipient-summary>div{
+  background:linear-gradient(145deg,#17243a,#111a2a)!important;
+  color:#f1f5ff!important;border:1px solid #34445c!important;
+  box-shadow:0 8px 22px #0003!important;
+}
+.stat b,.stat strong,.stat .value,.stats .stat b,.stats .stat strong,
+.kpi b,.kpi strong,.kpi-card b,.kpi-card strong,.metric-card b,.metric-card strong,
+.summary-card b,.summary-card strong{color:#f8fbff!important;}
+.stat span,.stat small,.stats .stat span,.stats .stat small,.kpi span,.kpi small,
+.kpi-card span,.kpi-card small,.metric-card span,.metric-card small,
+.summary-card span,.summary-card small{color:#c1cee2!important;}
+/* Prevent pale text on white or near-white helper/empty states. */
+.empty,.report-empty,.empty-state,.no-results,.no-eligible,.eligible-empty,
+.bulk-followup-card .empty,.bulk-followup-card .empty-state,
+.bulk-followup-card .status-message,#tracking .empty,#recipients .empty{
+  background:#111a2a!important;color:#e5edf9!important;border:1px solid #34445c!important;
+}
+/* Disabled buttons remain legible while visibly inactive. */
+button:disabled,.primary:disabled,.secondary:disabled,.mini:disabled,
+button[disabled],[aria-disabled="true"]{
+  opacity:1!important;background:#26344a!important;color:#aebed5!important;
+  border-color:#3b4b64!important;cursor:not-allowed!important;
+}
+/* All buttons in app modules use the shared high-contrast palette unless explicitly semantic. */
+button:not(.primary):not(.danger):not(.whatsapp):not(.ordered-toggle):not(.product-ordered):not(.status-ordered):not(.pending-toggle):not(.status-pending):not(.active){
+  color:#eaf1ff;
+}
+/* Light utility pills and selected-count chips were hard to read on dark pages. */
+.selected-count,.selection-count,.count-pill,.eligible-count,.chip,.pill:not(.badge),
+.bulk-followup-card .selection-count,.bulk-followup-card .selected-count{
+  background:#24344d!important;color:#eaf1ff!important;border:1px solid #405572!important;
+}
+/* Date controls and native date text on iOS Safari. */
+input[type=date],input[type=datetime-local],input[type=time]{
+  background:#0d1626!important;color:#f1f5ff!important;color-scheme:dark!important;
+  border-color:#455773!important;
+}
+/* Make all low-emphasis labels readable; retain semantic green/amber/red statuses. */
+.page label,.page .muted,.page .subtle,.page small,.page .caption{color:#b7c4d9;}
+.page h1,.page h2,.page h3,.page h4,.page strong{color:#f1f5ff;}
+
+
+/* FINAL TARGETED POLISH: bulk-follow-up controls + home value cards */
+/* Never use pale text on near-white buttons/chips in the follow-up panel. */
+#bulkFollowupSelectAll,#bulkFollowupClearSelection,
+#bulkFollowupCard #bulkFollowupSelectAll,#bulkFollowupCard #bulkFollowupClearSelection,
+.bulk-followup-card #bulkFollowupSelectAll,.bulk-followup-card #bulkFollowupClearSelection{
+  background:linear-gradient(135deg,#263d60,#1b2c46)!important;
+  color:#f8fbff!important;border:1px solid #46658d!important;
+  box-shadow:0 4px 12px #0002!important;
+}
+#bulkFollowupSelectedCount,.bulk-followup-card #bulkFollowupSelectedCount,
+.bulk-followup-card .selection-count,.bulk-followup-card .selected-count{
+  background:#1b2c43!important;color:#f3f7ff!important;
+  border:1px solid #405572!important;
+}
+#bulkFollowupStatus,.bulk-followup-card #bulkFollowupStatus,
+.bulk-followup-card .bulk-followup-status{
+  background:#17263a!important;color:#dce8fa!important;
+  border:1px solid #344c69!important;
+}
+#bulkFollowupStatus:empty{display:none!important;}
+/* Explicit disabled state: muted blue-grey with enough contrast, not white-on-white. */
+.bulk-followup-card button:disabled,#bulkFollowupCard button:disabled,
+.bulk-followup-card [aria-disabled="true"]{
+  background:#202d40!important;color:#aebed4!important;
+  border:1px solid #35465e!important;opacity:1!important;
+}
+/* Home page value cards: separate, attractive accent palettes for shared and ordered value. */
+#dashboard .dashboard-overview-grid .dash-kpi:nth-child(1){
+  background:linear-gradient(145deg,#142b49,#111a2a 78%)!important;border-color:#315d8d!important;
+  --tone:#7db8ff;--tint:#24528a;
+}
+#dashboard .dashboard-overview-grid .dash-kpi:nth-child(2){
+  background:linear-gradient(145deg,#12372f,#111a2a 78%)!important;border-color:#28785f!important;
+  --tone:#6ee7b7;--tint:#1d604c;
+}
+#dashboard .dashboard-overview-grid .dash-kpi:nth-child(3){
+  background:linear-gradient(145deg,#3a2d16,#171b27 78%)!important;border-color:#80602b!important;
+  --tone:#fcd34d;--tint:#654b1e;
+}
+#dashboard .dashboard-overview-grid .dash-kpi:nth-child(4){
+  background:linear-gradient(145deg,#2b2147,#111a2a 78%)!important;border-color:#604b91!important;
+  --tone:#c4b5fd;--tint:#4a3678;
+}
+#dashboard .dashboard-overview-grid .dash-kpi:nth-child(1) .dash-kpi-head,
+#dashboard .dashboard-overview-grid .dash-kpi:nth-child(1) .dash-kpi-value{color:#dbeafe!important;}
+#dashboard .dashboard-overview-grid .dash-kpi:nth-child(2) .dash-kpi-head,
+#dashboard .dashboard-overview-grid .dash-kpi:nth-child(2) .dash-kpi-value{color:#d1fae5!important;}
+#dashboard .dashboard-overview-grid .dash-kpi:nth-child(3) .dash-kpi-head,
+#dashboard .dashboard-overview-grid .dash-kpi:nth-child(3) .dash-kpi-value{color:#fef3c7!important;}
+#dashboard .dashboard-overview-grid .dash-kpi:nth-child(4) .dash-kpi-head,
+#dashboard .dashboard-overview-grid .dash-kpi:nth-child(4) .dash-kpi-value{color:#ede9fe!important;}
+#dashboard .dashboard-overview-grid .dash-kpi .dash-kpi-note{color:#c1cee2!important;}
+#dashboard .dashboard-overview-grid .dash-kpi:after{opacity:.24!important;}
+
+
+/* CONTACT COUNTS + SORTING: compact recipient-level share/order metrics. */
+.contact-sort-label{color:#c1cee2!important;font-size:12px;margin:2px 0 0!important;}
+.contact-sort{background:#0d1626!important;color:#f1f5ff!important;border:1px solid #455773!important;color-scheme:dark;margin-bottom:12px;}
+#contactsList .contact-list-item{align-items:center;gap:12px;background:linear-gradient(145deg,#121e31,#101827)!important;border-color:#2d3d56!important;}
+#contactsList .contact-main{min-width:0;flex:1;}
+#contactsList .contact-main h3{color:#f8fbff!important;}
+#contactsList .contact-main p{color:#b7c4d9!important;}
+#contactsList .contact-actions{margin-top:12px;flex-wrap:wrap;}
+#contactsList .contact-product-stats{display:flex;gap:7px;flex-shrink:0;align-self:flex-start;}
+#contactsList .contact-product-stats span{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:55px;padding:8px 7px;border-radius:12px;border:1px solid #34445c;background:#1b2b43;}
+#contactsList .contact-product-stats strong{font-size:17px;line-height:1.2;color:#f8fbff!important;}
+#contactsList .contact-product-stats small{font-size:10px;font-weight:750;color:#c1cee2!important;margin-top:3px;}
+#contactsList .contact-ordered-count{background:#12372e!important;border-color:#28785f!important;}
+#contactsList .contact-ordered-count strong{color:#6ee7b7!important;}
+#contactsList .contact-shared-count{background:#142b49!important;border-color:#315d8d!important;}
+#contactsList .contact-shared-count strong{color:#93c5fd!important;}
+@media(max-width:390px){#contactsList .contact-product-stats{gap:4px}#contactsList .contact-product-stats span{min-width:47px;padding:7px 4px}#contactsList .contact-product-stats strong{font-size:15px}#contactsList .contact-product-stats small{font-size:9px}#contactsList .contact-actions .mini{padding:8px 9px;font-size:12px}}
+
+/* Fix the actual Clear selection ID used by bulk-followups.js. */
+#bulkFollowupClear{background:linear-gradient(135deg,#263d60,#1b2c46)!important;color:#f8fbff!important;border:1px solid #46658d!important;box-shadow:0 4px 12px #0002!important;}
+#bulkFollowupClear:disabled{background:#202d40!important;color:#aebed4!important;border-color:#35465e!important;opacity:1!important;}

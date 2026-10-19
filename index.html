@@ -4,7 +4,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#111827">
+<meta name="theme-color" content="#080d18">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Deal Dhamaka Agent</title>
@@ -64,6 +64,14 @@
   </div>
   <div class="contact-total-card" aria-live="polite"><span class="contact-total-icon">♙</span><div><small>TOTAL CONTACTS</small><strong id="totalContactCount">0</strong></div><span class="contact-total-caption">Saved recipients</span></div>
   <input id="contactSearch" class="search" placeholder="Search name or number">
+  <label class="contact-sort-label" for="contactSort">Sort recipients</label>
+  <select id="contactSort" class="contact-sort" aria-label="Sort recipients">
+    <option value="name">Name (A–Z)</option>
+    <option value="ordered-desc">Ordered product count (high to low)</option>
+    <option value="ordered-asc">Ordered product count (low to high)</option>
+    <option value="shared-desc">Products shared (high to low)</option>
+    <option value="shared-asc">Products shared (low to high)</option>
+  </select>
   <div id="contactsList"></div>
 </section>
 

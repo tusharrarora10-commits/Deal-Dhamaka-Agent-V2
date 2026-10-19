@@ -465,26 +465,47 @@ function bindItemActions(type) {
 function renderContacts() {
   const totalContactCount = $("totalContactCount");
   if (totalContactCount) totalContactCount.textContent = state.contacts.length.toLocaleString("en-IN");
-  const q = $("contactSearch").value.toLowerCase();
+  const q = ($("contactSearch")?.value || "").toLowerCase().trim();
+  const sortMode = $("contactSort")?.value || "name";
 
-  const a = state.contacts.filter(x =>
-    (x.name + " " + x.phone + " " + x.category)
-      .toLowerCase()
-      .includes(q)
-  );
+  // Match share history by contact ID, with phone fallback for older records.
+  const getContactStats = contact => {
+    const phone = String(contact.phone || "").replace(/\D/g, "");
+    const rows = (state.shares || []).filter(share =>
+      String(share.contactId || "") === String(contact.id) ||
+      (!share.contactId && phone && String(share.phone || "").replace(/\D/g, "") === phone)
+    );
+    return { shared: rows.length, ordered: rows.filter(row => Boolean(row.ordered)).length };
+  };
+
+  const a = state.contacts
+    .filter(x => `${x.name || ""} ${x.phone || ""} ${x.category || ""}`.toLowerCase().includes(q))
+    .map(contact => ({ contact, stats: getContactStats(contact) }));
+
+  a.sort((left, right) => {
+    if (sortMode === "ordered-desc") return right.stats.ordered - left.stats.ordered || String(left.contact.name || "").localeCompare(String(right.contact.name || ""), undefined, { sensitivity: "base" });
+    if (sortMode === "ordered-asc") return left.stats.ordered - right.stats.ordered || String(left.contact.name || "").localeCompare(String(right.contact.name || ""), undefined, { sensitivity: "base" });
+    if (sortMode === "shared-desc") return right.stats.shared - left.stats.shared || String(left.contact.name || "").localeCompare(String(right.contact.name || ""), undefined, { sensitivity: "base" });
+    if (sortMode === "shared-asc") return left.stats.shared - right.stats.shared || String(left.contact.name || "").localeCompare(String(right.contact.name || ""), undefined, { sensitivity: "base" });
+    return String(left.contact.name || "").localeCompare(String(right.contact.name || ""), undefined, { sensitivity: "base" });
+  });
 
   $("contactsList").innerHTML = a.length
-    ? a.map(x => `
-      <div class="item">
-        <div>
+    ? a.map(({ contact: x, stats }) => `
+      <div class="item contact-list-item">
+        <div class="contact-main">
           <h3>${esc(x.name)}</h3>
           <p>WhatsApp: ${esc(x.phone)}</p>
-          <p>${esc(x.category)}</p>
+          ${x.category ? `<p>${esc(x.category)}</p>` : ""}
+          <div class="actions contact-actions">
+            <button class="mini" data-timeline="${x.id}">Timeline</button>
+            <button class="mini" data-edit="${x.id}">Edit</button>
+            <button class="mini" data-delete="${x.id}">Delete</button>
+          </div>
         </div>
-        <div class="actions">
-          <button class="mini" data-timeline="${x.id}">Timeline</button>
-          <button class="mini" data-edit="${x.id}">Edit</button>
-          <button class="mini" data-delete="${x.id}">Delete</button>
+        <div class="contact-product-stats" aria-label="${stats.shared} products shared, ${stats.ordered} ordered">
+          <span class="contact-shared-count"><strong>${stats.shared}</strong><small>Shared</small></span>
+          <span class="contact-ordered-count"><strong>${stats.ordered}</strong><small>Ordered</small></span>
         </div>
       </div>
     `).join("")
@@ -767,6 +788,7 @@ function renderProducts() {
 
 
 $("contactSearch").oninput = renderContacts;
+if ($("contactSort")) $("contactSort").onchange = renderContacts;
 $("productSearch").oninput = renderProducts;
 $("historySearch").oninput = renderHistory;
 

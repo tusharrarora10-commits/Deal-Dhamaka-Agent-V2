@@ -1,7 +1,7 @@
 /* Deal Dhamaka Agent V2 — conservative offline cache.
-   Keep the existing localStorage key/data untouched.
+   Dashboard visuals only; preserve app storage and all existing workflows.
    Do not delete unrelated caches on this origin during activation. */
-const CACHE = 'deal-dhamaka-v11-timeline-table-cache';
+const CACHE = 'deal-dhamaka-v13-full-dark-mode';
 
 const ASSETS = [
   './',
@@ -10,10 +10,14 @@ const ASSETS = [
   './app.js',
   './whatsapp-enhancements.js',
   './dashboard.js',
-  './analytics.js',
   './followup.js',
+  './bulk-followups.js',
   './undo-redo.js',
+  './recipients-tab.js',
+  './refunds.js',
   './product-status.js',
+  './analytics.js',
+  './recipient-timeline.js',
   './manifest.json'
 ];
 
