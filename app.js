@@ -235,7 +235,8 @@ function addContact(x) {
   x = x || {
     name: "",
     phone: "",
-    category: "General"
+    category: "General",
+    amazonProfileUrl: ""
   };
 
   openModal(
@@ -255,6 +256,17 @@ function addContact(x) {
         >
       </label>
 
+      <label>Amazon Profile Link
+        <input
+          name="amazonProfileUrl"
+          type="url"
+          inputmode="url"
+          placeholder="https://www.amazon.in/gp/profile/..."
+          value="${esc(x.amazonProfileUrl || x.amazonProfile || "")}" 
+        >
+        <small class="muted">Paste the contact’s public Amazon profile URL to open their public reviews.</small>
+      </label>
+
       <label>Category
         <input
           name="category"
@@ -267,8 +279,22 @@ function addContact(x) {
         id: x.id || uid(),
         name: f.get("name").trim(),
         phone: f.get("phone").replace(/\D/g, ""),
-        category: f.get("category").trim() || "General"
+        category: f.get("category").trim() || "General",
+        amazonProfileUrl: String(f.get("amazonProfileUrl") || "").trim()
       };
+
+      if (obj.amazonProfileUrl) {
+        try {
+          const profileUrl = new URL(obj.amazonProfileUrl);
+          if (profileUrl.protocol !== "https:" || !/(^|\.)amazon\.(in|com|co\.uk|ca|com\.au|de|fr|it|es|co\.jp|com\.mx|com\.br|nl|sg|ae|sa|se|pl|tr)$/i.test(profileUrl.hostname)) {
+            alert("Please enter a valid HTTPS Amazon profile URL (for example, https://www.amazon.in/gp/profile/...).");
+            return;
+          }
+        } catch (_) {
+          alert("Please enter a valid Amazon profile URL.");
+          return;
+        }
+      }
 
       if (obj.phone.length < 10) {
         alert("Please enter a valid number including country code.");
@@ -499,6 +525,7 @@ function renderContacts() {
           <h3>${esc(x.name)}</h3>
           <p>WhatsApp: ${esc(x.phone)}</p>
           ${x.category ? `<p>${esc(x.category)}</p>` : ""}
+          ${x.amazonProfileUrl || x.amazonProfile ? `<div class="amazon-profile-actions"><a class="mini amazon-profile-link" href="${esc(x.amazonProfileUrl || x.amazonProfile)}" target="_blank" rel="noopener noreferrer">View Amazon Profile ↗</a><button class="mini" type="button" data-copy-amazon="${esc(x.id)}">Copy Profile Link</button></div>` : `<p class="amazon-profile-missing">Amazon profile link not added</p>`}
           <div class="actions contact-actions">
             <button class="mini" data-timeline="${x.id}">Timeline</button>
             <button class="mini" data-edit="${x.id}">Edit</button>
@@ -516,6 +543,30 @@ function renderContacts() {
   bindItemActions("contacts");
   document.querySelectorAll("[data-timeline]").forEach(button => {
     button.onclick = () => openContactTimeline(button.dataset.timeline);
+  });
+  document.querySelectorAll("[data-copy-amazon]").forEach(button => {
+    button.onclick = async () => {
+      const contact = state.contacts.find(c => String(c.id) === String(button.dataset.copyAmazon));
+      const url = String(contact?.amazonProfileUrl || contact?.amazonProfile || "").trim();
+      if (!url) return;
+      try {
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(url);
+        } else {
+          const field = document.createElement("textarea");
+          field.value = url; field.setAttribute("readonly", "");
+          field.style.position = "fixed"; field.style.opacity = "0";
+          document.body.appendChild(field); field.select();
+          const copied = document.execCommand("copy"); field.remove();
+          if (!copied) throw new Error("Copy unavailable");
+        }
+        const old = button.textContent;
+        button.textContent = "Copied ✓";
+        setTimeout(() => { if (button.isConnected) button.textContent = old; }, 1400);
+      } catch (_) {
+        window.prompt("Copy Amazon profile link:", url);
+      }
+    };
   });
 }
 

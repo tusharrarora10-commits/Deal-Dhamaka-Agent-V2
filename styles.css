@@ -530,3 +530,11 @@ input[type=date],input[type=datetime-local],input[type=time]{
 .product-suggest-name{font-weight:800;font-size:14px;line-height:1.35;color:#fff;overflow-wrap:anywhere}
 .product-suggest-meta{font-size:12px;line-height:1.35;color:#c5d4e9;overflow-wrap:anywhere}
 .product-suggest-empty{padding:14px;color:#e2eaf6;font-weight:650}
+
+
+/* Amazon public profile link actions on contact cards */
+#contactsList .amazon-profile-actions{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin-top:8px}
+#contactsList .amazon-profile-link{display:inline-flex;align-items:center;text-decoration:none;background:#183d2c!important;color:#bbf7d0!important;border:1px solid #276749!important}
+#contactsList .amazon-profile-missing{font-size:11px;color:#91a0b7!important;margin:7px 0 0}
+#modal form small.muted,#modal small.muted{display:block;font-size:11px;line-height:1.35;margin-top:5px;color:#9fb0c8!important}
+@media(max-width:390px){#contactsList .amazon-profile-actions .mini{font-size:11px;padding:8px 9px}}
