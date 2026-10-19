@@ -1,7 +1,7 @@
 /* Deal Dhamaka Agent V2 — conservative offline cache.
    Dashboard visuals only; preserve app storage and all existing workflows.
    Do not delete unrelated caches on this origin during activation. */
-const CACHE = 'deal-dhamaka-v13-full-dark-mode';
+const CACHE = 'deal-dhamaka-v14-crm-enhancements';
 
 const ASSETS = [
   './',
@@ -15,6 +15,7 @@ const ASSETS = [
   './undo-redo.js',
   './recipients-tab.js',
   './refunds.js',
+  './enhancements.js',
   './product-status.js',
   './analytics.js',
   './recipient-timeline.js',

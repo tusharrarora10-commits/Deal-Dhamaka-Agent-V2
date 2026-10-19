@@ -87,7 +87,7 @@
       <label class="ordered-toggle"><input type="checkbox" data-recipient-ordered="${esc(s.id)}" ${s.ordered?'checked':''}>Product Ordered</label></article>`).join('') : '<p class="report-empty">No recipient records match these filters.</p>';
     list.querySelectorAll('[data-recipient-ordered]').forEach(input => input.onchange = () => {
       if (typeof window.toggleOrdered === 'function') window.toggleOrdered(input.dataset.recipientOrdered,input.checked);
-      else { try { const raw=JSON.parse(localStorage.getItem(KEY)||'{}'); const row=(raw.shares||[]).find(s=>String(s.id)===String(input.dataset.recipientOrdered)); if(row){row.ordered=input.checked;row.orderedAt=input.checked?(row.orderedAt||new Date().toISOString()):'';localStorage.setItem(KEY,JSON.stringify(raw));} } catch(_){} }
+      else { try { const raw=JSON.parse(localStorage.getItem(KEY)||'{}'); const row=(raw.shares||[]).find(s=>String(s.id)===String(input.dataset.recipientOrdered)); if(row){row.ordered=input.checked;row.orderedAt=input.checked?(row.orderedAt||new Date().toISOString()):'';localStorage.setItem(KEY,JSON.stringify(raw));window.dispatchEvent(new CustomEvent("deal-dhamaka-data-updated"));} } catch(_){} }
       render();
     });
   }

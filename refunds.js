@@ -7,7 +7,7 @@
   const money=n=>'₹'+(Number(n)||0).toLocaleString('en-IN',{maximumFractionDigits:2});
   const selectedProducts=new Set(), selectedShares=new Set();
   function read(){try{return JSON.parse(localStorage.getItem(KEY)||'{}')}catch(_){return {}}}
-  function write(data){localStorage.setItem(KEY,JSON.stringify(data));}
+  function write(data){localStorage.setItem(KEY,JSON.stringify(data));window.dispatchEvent(new CustomEvent("deal-dhamaka-data-updated"));}
   function records(){const d=read(),products=d.products||[],contacts=d.contacts||[],shares=d.shares||[];return shares.map(s=>{const p=products.find(x=>String(x.id)===String(s.productId))||products.find(x=>String(x.name||x.brand)===String(s.productName||s.brand));const c=contacts.find(x=>String(x.id)===String(s.contactId))||contacts.find(x=>String(x.phone||'').replace(/\D/g,'')===String(s.phone||'').replace(/\D/g,''));return {...s,_product:p,_contact:c,_amount:Number(s.refundAmount ?? s.priceSnapshot ?? p?.price ?? 0)}})}
   function setup(){if(!$('refundProductList'))return; $('refundProductSearch').oninput=render; $('refundContactSearch').oninput=renderContacts; $('refreshRefunds').onclick=render; $('refundSelectAllProducts').onclick=()=>{filteredProducts().forEach(p=>selectedProducts.add(String(p.id)));render()}; $('refundClearProducts').onclick=()=>{selectedProducts.clear();render()}; $('refundSelectAllContacts').onclick=()=>{filteredShares().forEach(s=>selectedShares.add(String(s.id)));renderContacts()}; $('refundClearContacts').onclick=()=>{selectedShares.clear();renderContacts()}; $('markProductsRefunded').onclick=markProducts; $('markContactsRefunded').onclick=markContacts; render();}
   function productList(){const d=read();return d.products||[]}

@@ -14,7 +14,7 @@ const uid = () => crypto.randomUUID
   ? crypto.randomUUID()
   : Date.now() + "-" + Math.random().toString(16).slice(2);
 
-let state = { contacts: [], products: [], shares: [] };
+let state = { contacts: [], products: [], shares: [], activity: [], templates: [] };
 let batch = [], batchIndex = 0;
 let selectedContacts = new Set(), selectedProducts = new Set();
 
@@ -77,7 +77,9 @@ function load() {
     state = {
       contacts: Array.isArray(x.contacts) ? x.contacts : [],
       products: Array.isArray(x.products) ? x.products : [],
-      shares: Array.isArray(x.shares) ? x.shares : []
+      shares: Array.isArray(x.shares) ? x.shares : [],
+      activity: Array.isArray(x.activity) ? x.activity : [],
+      templates: Array.isArray(x.templates) ? x.templates : []
     };
 
     
@@ -105,7 +107,7 @@ state.products = state.products.map(p => ({
       };
     });
   } catch (e) {
-    state = { contacts: [], products: [], shares: [] };
+    state = { contacts: [], products: [], shares: [], activity: [], templates: [] };
   }
 }
 
@@ -1936,7 +1938,9 @@ $("exportData").onclick = () => {
       delete record.fulfilled;
       delete record.fulfilledAt;
       return record;
-    })
+    }),
+    activity: Array.isArray(state.activity) ? state.activity : [],
+    templates: Array.isArray(state.templates) ? state.templates : []
   };
 
   download(
@@ -1961,7 +1965,7 @@ $("importData").onchange = async e => {
       "Import backup? Existing contacts/products/shares will be merged; matching IDs will be replaced."
     )) return;
 
-    for (const k of ["contacts", "products", "shares"]) {
+    for (const k of ["contacts", "products", "shares", "activity", "templates"]) {
       if (Array.isArray(d[k])) {
         const map = new Map(state[k].map(x => [x.id, x]));
 
@@ -2143,7 +2147,9 @@ $("resetData").onclick = () => {
     state = {
       contacts: [],
       products: [],
-      shares: []
+      shares: [],
+      activity: [],
+      templates: []
     };
 
     save();
