@@ -32,23 +32,37 @@ function hasSharedPair(contactId, productId) {
   if (!contact || !product) return false;
   const contactPhone = normalizeMatchPhone(contact.phone);
   const contactName = normalizeMatchText(contact.name);
-  const productName = normalizeMatchText(product.name);
+  const productNames = new Set([
+    normalizeMatchText(product.name),
+    normalizeMatchText(product.brand),
+    normalizeMatchText([product.brand, product.name].filter(Boolean).join(" "))
+  ].filter(Boolean));
   return state.shares.some(s => {
-    const productMatch = s.productId != null
-      ? String(s.productId) === String(productId)
-      : normalizeMatchText(s.productName) === productName;
-    const contactMatch = s.contactId != null
-      ? String(s.contactId) === String(contactId)
-      : (contactPhone && normalizeMatchPhone(s.phone) === contactPhone) ||
-        (contactName && normalizeMatchText(s.contactName) === contactName);
+    // Prefer stable IDs, but also check normalized legacy fields. Some imported
+    // records have stale/empty IDs while their phone/product text still matches.
+    const shareProductId = s.productId == null ? "" : String(s.productId).trim();
+    const shareProductText = normalizeMatchText(s.productName || s.name || "");
+    const shareBrandText = normalizeMatchText(s.brand || "");
+    const productMatch = (shareProductId && shareProductId === String(productId)) ||
+      (shareProductText && productNames.has(shareProductText)) ||
+      (shareBrandText && productNames.has(shareBrandText)) ||
+      (shareProductText && shareBrandText && productNames.has(normalizeMatchText(`${s.brand || ""} ${s.productName || s.name || ""}`)));
+
+    const shareContactId = s.contactId == null ? "" : String(s.contactId).trim();
+    const sharePhone = normalizeMatchPhone(s.phone || s.whatsapp || s.contactPhone);
+    const shareName = normalizeMatchText(s.contactName || s.nameOfContact || "");
+    const contactMatch = (shareContactId && shareContactId === String(contactId)) ||
+      (contactPhone && sharePhone && contactPhone === sharePhone) ||
+      (contactName && shareName && contactName === shareName);
     return Boolean(productMatch && contactMatch);
   });
 }
 function getEligibleContactsForProducts(productIds) {
-  const ids = [...new Set((productIds || []).map(String))];
+  const ids = [...new Set((productIds || []).map(String).filter(Boolean))];
   if (!ids.length) return state.contacts;
-  // A recipient stays eligible if at least one selected product has not been shared.
-  // Batch creation below skips already-shared contact/product pairs individually.
+  // Exclude a recipient only when every selected product was already shared.
+  // If at least one selected product is new, keep the recipient visible; batch
+  // construction skips only the already-shared product/contact pairs.
   return state.contacts.filter(c => ids.some(productId => !hasSharedPair(c.id, productId)));
 }
 
