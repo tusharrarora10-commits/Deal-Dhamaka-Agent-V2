@@ -18,6 +18,40 @@ let state = { contacts: [], products: [], shares: [] };
 let batch = [], batchIndex = 0;
 let selectedContacts = new Set(), selectedProducts = new Set();
 
+// Robust duplicate-share detection for both current and older history records.
+// IDs are preferred; normalized phone/name and product name are legacy fallbacks.
+function normalizeMatchText(value) {
+  return String(value ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+}
+function normalizeMatchPhone(value) {
+  return String(value ?? "").replace(/\D/g, "").replace(/^0+/, "");
+}
+function hasSharedPair(contactId, productId) {
+  const contact = state.contacts.find(c => String(c.id) === String(contactId));
+  const product = state.products.find(p => String(p.id) === String(productId));
+  if (!contact || !product) return false;
+  const contactPhone = normalizeMatchPhone(contact.phone);
+  const contactName = normalizeMatchText(contact.name);
+  const productName = normalizeMatchText(product.name);
+  return state.shares.some(s => {
+    const productMatch = s.productId != null
+      ? String(s.productId) === String(productId)
+      : normalizeMatchText(s.productName) === productName;
+    const contactMatch = s.contactId != null
+      ? String(s.contactId) === String(contactId)
+      : (contactPhone && normalizeMatchPhone(s.phone) === contactPhone) ||
+        (contactName && normalizeMatchText(s.contactName) === contactName);
+    return Boolean(productMatch && contactMatch);
+  });
+}
+function getEligibleContactsForProducts(productIds) {
+  const ids = [...new Set((productIds || []).map(String))];
+  if (!ids.length) return state.contacts;
+  // A recipient stays eligible if at least one selected product has not been shared.
+  // Batch creation below skips already-shared contact/product pairs individually.
+  return state.contacts.filter(c => ids.some(productId => !hasSharedPair(c.id, productId)));
+}
+
 /* =========================
    DATA AND STORAGE
 ========================= */
@@ -877,25 +911,13 @@ function renderSendLists() {
     [...selectedProducts].map(String).filter(id => activeProductIds.has(id))
   );
 
-  // A contact-product pair is considered already shared if it exists in history.
-  const previouslyShared = new Set(
-    state.shares
-      .filter(s => s.contactId != null && s.productId != null)
-      .map(s => String(s.contactId) + "::" + String(s.productId))
-  );
-
-  // Chronology: brand -> products -> contacts. Contacts are filtered against
-  // selected products; if only a brand is selected, use every active product in that brand.
+  // Chronology: brand -> products -> contacts. Use robust matching so older
+  // share records with missing IDs still prevent accidental duplicate shares.
   const selectedProductIds = [...selectedProducts];
   const relevantProductIds = selectedProductIds.length
     ? selectedProductIds
     : (brandFilter ? brandProducts.map(p => String(p.id)) : []);
-  const eligibleContacts = state.contacts.filter(c => {
-    if (!relevantProductIds.length) return true;
-    return relevantProductIds.some(productId =>
-      !previouslyShared.has(String(c.id) + "::" + String(productId))
-    );
-  });
+  const eligibleContacts = getEligibleContactsForProducts(relevantProductIds);
 
   const eligibleContactIds = new Set(
     eligibleContacts.map(c => String(c.id))
@@ -977,12 +999,6 @@ function renderSendLists() {
 function rebuildBatchFromSelections() {
   batch = [];
 
-  const previouslyShared = new Set(
-    state.shares
-      .filter(s => s.contactId != null && s.productId != null)
-      .map(s => String(s.contactId) + "::" + String(s.productId))
-  );
-
   const activeProductIds = new Set(
     state.products
       .filter(p => p.dealStatus !== "closed")
@@ -991,11 +1007,9 @@ function rebuildBatchFromSelections() {
 
   selectedContacts.forEach(contactId => {
     selectedProducts.forEach(productId => {
-      const pairKey = String(contactId) + "::" + String(productId);
-
       if (
         activeProductIds.has(String(productId)) &&
-        !previouslyShared.has(pairKey)
+        !hasSharedPair(contactId, productId)
       ) {
         batch.push({
           contactId: String(contactId),
@@ -1018,17 +1032,8 @@ $("allContacts").onclick = () => {
     return;
   }
 
-  const previouslyShared = new Set(
-    state.shares
-      .filter(s => s.contactId != null && s.productId != null)
-      .map(s => String(s.contactId) + "::" + String(s.productId))
-  );
-
   selectedContacts = new Set(
-    state.contacts
-      .filter(c => [...selectedProducts].some(productId =>
-        !previouslyShared.has(String(c.id) + "::" + String(productId))
-      ))
+    getEligibleContactsForProducts([...selectedProducts])
       .map(c => String(c.id))
   );
 
