@@ -333,7 +333,7 @@ function addProduct(x) {
   x.brand = x.brand || x.name || "";
   const existingLinks = Array.isArray(x.links) && x.links.length
     ? x.links.map(v => ({ productType: v.productType || x.productType || "", price: v.price ?? "", link: v.link || "" }))
-    : [{ productType: x.productType || "", price: x.price || "", link: x.link || "" }];
+    : [{ productType: x.productType || "", description: x.description || "", price: x.price || "", link: x.link || "" }];
 
   const linkRows = rows => rows.map((v, i) => `
     <div class="product-link-row" data-product-link-row>
@@ -346,6 +346,9 @@ function addProduct(x) {
       </label>
       <label>Price (₹)
         <input name="variantPrice" inputmode="decimal" placeholder="e.g. 999" value="${esc(v.price)}">
+      </label>
+      <label class="wide">Description
+        <input name="variantDescription" placeholder="Description for this link/type" value="${esc(v.description || "")}">
       </label>
       <label class="wide">Product Link
         <input name="variantLink" type="url" required placeholder="https://..." value="${esc(v.link)}">
@@ -397,9 +400,11 @@ function addProduct(x) {
       }
       const types = f.getAll("variantProductType");
       const prices = f.getAll("variantPrice");
+      const descriptions = f.getAll("variantDescription");
       const urls = f.getAll("variantLink");
       const links = urls.map((link, i) => ({
         productType: String(types[i] || "").trim(),
+        description: String(descriptions[i] || "").trim(),
         price: String(prices[i] || "").trim(),
         link: String(link || "").trim()
       })).filter(v => v.productType || v.price || v.link);
@@ -444,7 +449,7 @@ function addProduct(x) {
     const row = document.createElement("div");
     row.className = "product-link-row";
     row.setAttribute("data-product-link-row", "");
-    row.innerHTML = `<div class="product-link-row-head"><b>Product link</b><button type="button" class="secondary small" data-remove-product-link>Remove</button></div><label>Product Type<input name="variantProductType" required placeholder="e.g. Shoes"></label><label>Price (₹)<input name="variantPrice" inputmode="decimal" placeholder="e.g. 999"></label><label class="wide">Product Link<input name="variantLink" type="url" required placeholder="https://..."></label>`;
+    row.innerHTML = `<div class="product-link-row-head"><b>Product link</b><button type="button" class="secondary small" data-remove-product-link>Remove</button></div><label>Product Type<input name="variantProductType" required placeholder="e.g. Shoes"></label><label>Price (₹)<input name="variantPrice" inputmode="decimal" placeholder="e.g. 999"></label><label class="wide">Description<input name="variantDescription" placeholder="Description for this link/type"></label><label class="wide">Product Link<input name="variantLink" type="url" required placeholder="https://..."></label>`;
     rowsEl.appendChild(row); refreshRemoveButtons();
     row.querySelector('input[name="variantProductType"]').focus();
   });
@@ -784,7 +789,7 @@ function renderProducts() {
                   : ""}
               </p>
 
-              ${(Array.isArray(product.links) && product.links.length ? product.links : [{productType: product.productType, price: product.price, link: product.link}]).map((v, i) => `<p><b>${esc(v.productType || "Product type")}</b>${v.price ? " · ₹" + esc(v.price) : ""}<br><a href="${esc(v.link || "#")}" target="_blank" rel="noopener">${esc(v.link || "No link")}</a></p>`).join("")}
+              ${(Array.isArray(product.links) && product.links.length ? product.links : [{productType: product.productType, price: product.price, link: product.link}]).map((v, i) => `<p><b>${esc(product.brand || product.name || "Brand")} - ${esc(v.productType || "Product type")}</b>${v.price ? " · ₹" + esc(v.price) : ""}${v.description ? `<br>${esc(v.description)}` : ""}<br><a href="${esc(v.link || "#")}" target="_blank" rel="noopener">${esc(v.link || "No link")}</a></p>`).join("")}
               <p><b>Deal dates:</b> ${esc(product.dealStartDate || "Not set")} → ${esc(product.dealEndDate || "No end date")}</p>
 
               <p>
@@ -1236,17 +1241,27 @@ function updateBatchUI() {
 }
 
 function makeMessage(c, p) {
+  const variants = Array.isArray(p.links) && p.links.length
+    ? p.links
+    : [{ productType: p.productType || "", description: p.description || "", price: p.price || "", link: p.link || "" }];
+  const linkList = variants.map((v, i) => {
+    const title = `${p.brand || p.name || "Brand"} - ${v.productType || p.productType || "Product"}`;
+    const details = [
+      v.description || "",
+      v.price !== "" && v.price != null ? `Price: ₹${v.price}` : ""
+    ].filter(Boolean);
+    return `${i + 1}. ${title}${details.length ? `\n   ${details.join(" | ")}` : ""}\n   🔗 ${v.link || ""}`;
+  }).join("\n\n");
   return `🥳 Something FREE is waiting for you! 🎁
 
 Hi ${c.name} 👋
 
 🛍️ ${p.brand || p.name}
-✨ ${p.description || ""}
 
-👇 Your deal link:
-🔗 ${p.link}
+👇 Available options:
+${linkList}
 
-🛒 Place your order & enjoy your freebie! 😍
+🛒 Place your order & enjoy your deal! 😍
 
 💥 Deal Dhamaka — Happy Shopping! 🎉`;
 }
