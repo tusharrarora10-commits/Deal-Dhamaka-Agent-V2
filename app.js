@@ -781,9 +781,22 @@ function renderProducts() {
 
               <p>
                 ${esc(product.platform)}
-                ${product.price
-                  ? " · ₹" + esc(product.price)
-                  : ""}
+                ${(() => {
+                  const priceVariants = Array.isArray(product.links) && product.links.length
+                    ? product.links
+                    : [{ price: product.price }];
+                  const totalVariantPrice = priceVariants.reduce((sum, variant) => {
+                    const amount = Number(String(variant.price ?? "").replace(/[,₹\s]/g, ""));
+                    return sum + (Number.isFinite(amount) && amount > 0 ? amount : 0);
+                  }, 0);
+                  const pricedVariants = priceVariants.filter(variant => {
+                    const amount = Number(String(variant.price ?? "").replace(/[,₹\s]/g, ""));
+                    return Number.isFinite(amount) && amount > 0;
+                  }).length;
+                  return pricedVariants > 1
+                    ? " · Total of " + pricedVariants + " options: ₹" + totalVariantPrice.toLocaleString("en-IN", { maximumFractionDigits: 2 })
+                    : (pricedVariants === 1 ? " · ₹" + totalVariantPrice.toLocaleString("en-IN", { maximumFractionDigits: 2 }) : "");
+                })()}
               </p>
 
               ${(Array.isArray(product.links) && product.links.length ? product.links : [{productType: product.productType, price: product.price, link: product.link}]).map((v, i) => `<p><b>${esc(product.brand || product.name || "Brand")} - ${esc(v.productType || "Product type")}</b>${v.price ? " · ₹" + esc(v.price) : ""}${v.description ? `<br>${esc(v.description)}` : ""}<br><a href="${esc(v.link || "#")}" target="_blank" rel="noopener">${esc(v.link || "No link")}</a></p>`).join("")}
