@@ -118,24 +118,39 @@ Sharing this deal with you:
   }
 
   function fillMessage(template, contact, product) {
+    const variants = Array.isArray(product.links) && product.links.length
+      ? product.links
+      : [{ productType: product.productType || "", description: product.description || "", price: product.price || "", link: product.link || "" }];
+    const linkList = variants.map((v, i) => {
+      const title = `${product.brand || product.name || "Brand"} - ${v.productType || product.productType || "Product"}`;
+      const details = [
+        v.description || "",
+        v.price !== "" && v.price != null ? `Price: ₹${v.price}` : ""
+      ].filter(Boolean);
+      return `${i + 1}. ${title}${details.length ? `\n   ${details.join(" | ")}` : ""}\n   🔗 ${v.link || ""}`;
+    }).join("\n\n");
+
     const values = {
       contactName: contact.name || "",
       phone: contact.phone || "",
       brand: product.brand || product.name || "",
-      productName: product.name || "",
-      productType: product.productType || "",
-      description: product.description || "",
-      price: product.price ? "₹" + product.price : "Check link",
+      productName: product.name || product.brand || "",
+      productType: variants.map(v => v.productType).filter(Boolean).join(", "),
+      // Variant descriptions are displayed beside their respective numbered links.
+      // Do not repeat the old product-level description below the brand name.
+      description: "",
+      price: variants.length > 1 ? variants.map((v, i) => `${i + 1}. ${v.price ? "₹" + v.price : "Price on link"}`).join("\n") : (variants[0].price ? "₹" + variants[0].price : "Check link"),
       platform: product.platform || "",
-      link: product.link || ""
+      link: linkList
     };
 
-    return String(template || "").replace(
+    // Remove the entire template line containing {{description}}, including its emoji/label,
+    // so the old global description is not repeated above the numbered variant details.
+    const cleanTemplate = String(template || "").split("\n").filter(line => !/\{\{\s*description\s*\}\}/i.test(line)).join("\n");
+    return cleanTemplate.replace(
       /\{\{\s*([a-zA-Z]+)\s*\}\}/g,
-      (match, key) => Object.prototype.hasOwnProperty.call(values, key)
-        ? values[key]
-        : match
-    );
+      (match, key) => Object.prototype.hasOwnProperty.call(values, key) ? values[key] : match
+    ).replace(/\n{3,}/g, "\n\n");
   }
 
   function buildMessage(contact, product) {

@@ -332,7 +332,7 @@ function addProduct(x) {
 
   x.brand = x.brand || x.name || "";
   const existingLinks = Array.isArray(x.links) && x.links.length
-    ? x.links.map(v => ({ productType: v.productType || x.productType || "", price: v.price ?? "", link: v.link || "" }))
+    ? x.links.map(v => ({ productType: v.productType || x.productType || "", description: v.description || "", price: v.price ?? "", link: v.link || "" }))
     : [{ productType: x.productType || "", description: x.description || "", price: x.price || "", link: x.link || "" }];
 
   const linkRows = rows => rows.map((v, i) => `
@@ -361,9 +361,6 @@ function addProduct(x) {
       <div class="product-form-grid">
         <label>Brand Name
           <input name="brand" required placeholder="e.g. Nike" value="${esc(x.brand)}">
-        </label>
-        <label>Description
-          <input name="description" placeholder="Product/deal description" value="${esc(x.description || "")}">
         </label>
         <label>Platform
           <select name="platform">
@@ -415,7 +412,7 @@ function addProduct(x) {
       const obj = {
         ...x, id: x.id || uid(), name: brand, brand,
         productType: primary.productType,
-        description: f.get("description").trim(),
+        description: primary.description || "",
         price: primary.price,
         platform: f.get("platform"),
         link: primary.link,
@@ -1246,22 +1243,17 @@ function makeMessage(c, p) {
     : [{ productType: p.productType || "", description: p.description || "", price: p.price || "", link: p.link || "" }];
   const linkList = variants.map((v, i) => {
     const title = `${p.brand || p.name || "Brand"} - ${v.productType || p.productType || "Product"}`;
-    const details = [
-      v.description || "",
-      v.price !== "" && v.price != null ? `Price: ₹${v.price}` : ""
-    ].filter(Boolean);
+    const details = [v.description || "", v.price !== "" && v.price != null ? `Price: ₹${v.price}` : ""].filter(Boolean);
     return `${i + 1}. ${title}${details.length ? `\n   ${details.join(" | ")}` : ""}\n   🔗 ${v.link || ""}`;
   }).join("\n\n");
   return `🥳 Something FREE is waiting for you! 🎁
 
 Hi ${c.name} 👋
 
-🛍️ ${p.brand || p.name}
-
 👇 Available options:
 ${linkList}
 
-🛒 Place your order & enjoy your deal! 😍
+🛒 Place your order and enjoy your deal! 😍
 
 💥 Deal Dhamaka — Happy Shopping! 🎉`;
 }
