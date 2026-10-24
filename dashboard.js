@@ -141,9 +141,17 @@
     const shares = (Array.isArray(state.shares) ? state.shares : []).map(s => {
       const product = s.productId == null ? null : byId.get(String(s.productId));
       if (s.productId != null && !product) return null;
-      const price = s.priceSnapshot !== undefined && s.priceSnapshot !== null && s.priceSnapshot !== ""
-        ? Math.max(0, Number(s.priceSnapshot) || 0)
-        : Math.max(0, Number(product?.price) || 0);
+      // A share message can contain several link variants. Value it at the
+      // combined price of all saved variants so dashboard totals match the product card.
+      const variantPrices = Array.isArray(product?.links)
+        ? product.links.map(v => Math.max(0, Number(v?.price) || 0))
+        : [];
+      const variantTotal = variantPrices.length > 1 ? variantPrices.reduce((sum, value) => sum + value, 0) : 0;
+      const price = variantTotal > 0
+        ? variantTotal
+        : (s.priceSnapshot !== undefined && s.priceSnapshot !== null && s.priceSnapshot !== ""
+          ? Math.max(0, Number(s.priceSnapshot) || 0)
+          : Math.max(0, Number(product?.price) || 0));
       return {...s, _price:price, _brand:s.brand || product?.brand || product?.name || "Unspecified", _type:s.productType || product?.productType || "Unspecified", _product:product};
     }).filter(Boolean);
     return {contacts:state.contacts||[],products,shares};
@@ -198,7 +206,13 @@
     const refundedRows=selected.filter(s=>s.refunded);
     const refundedValue=refundedRows.reduce((n,s)=>n+Math.max(0,Number(s.refundAmount ?? s.priceSnapshot ?? s._price)||0),0);
     const allotted=data.products.reduce((n,p)=>n+Math.max(0,Number(p.allottedQty)||0),0);
-    const allottedValue=data.products.reduce((n,p)=>n+Math.max(0,Number(p.allottedQty)||0)*Math.max(0,Number(p.price)||0),0);
+    const allottedValue=data.products.reduce((n,p)=>{
+      const qty=Math.max(0,Number(p.allottedQty)||0);
+      const links=Array.isArray(p.links)?p.links:[];
+      const variantTotal=links.length>1?links.reduce((sum,v)=>sum+Math.max(0,Number(v?.price)||0),0):0;
+      const unitValue=variantTotal>0?variantTotal:Math.max(0,Number(p.price)||0);
+      return n+qty*unitValue;
+    },0);
     const allOrdered=allShares.filter(s=>s.ordered).length, conversion=allShares.length?Math.round(allOrdered/allShares.length*100):0;
     const sharedAll=allShares.length, orderedAll=allOrdered, pendingAll=Math.max(0,sharedAll-orderedAll);
     const sharedAllotted=data.products.reduce((n,p)=>n+allShares.filter(s=>String(s.productId)===String(p.id)).length,0);
