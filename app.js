@@ -325,123 +325,96 @@ function addContact(x) {
 
 function addProduct(x) {
   x = x || {
-    name: "",
-    brand: "",
-    productType: "",
-    description: "",
-    price: "",
-    platform: "Amazon",
-    link: "",
-    allottedQty: 0,
-    quantityUnit: "units",
-    dealStartDate: new Date().toISOString().slice(0,10),
-    dealEndDate: ""
+    name: "", brand: "", productType: "", description: "", price: "",
+    platform: "Amazon", link: "", links: [], allottedQty: 0,
+    quantityUnit: "units", dealStartDate: new Date().toISOString().slice(0,10), dealEndDate: ""
   };
 
   x.brand = x.brand || x.name || "";
+  const existingLinks = Array.isArray(x.links) && x.links.length
+    ? x.links.map(v => ({ productType: v.productType || x.productType || "", price: v.price ?? "", link: v.link || "" }))
+    : [{ productType: x.productType || "", price: x.price || "", link: x.link || "" }];
+
+  const linkRows = rows => rows.map((v, i) => `
+    <div class="product-link-row" data-product-link-row>
+      <div class="product-link-row-head">
+        <b>Product link ${i + 1}</b>
+        <button type="button" class="secondary small" data-remove-product-link ${rows.length === 1 ? "disabled" : ""} ${rows.length === 1 ? "aria-disabled=\"true\"" : ""}>Remove</button>
+      </div>
+      <label>Product Type
+        <input name="variantProductType" required placeholder="e.g. Shoes" value="${esc(v.productType)}">
+      </label>
+      <label>Price (₹)
+        <input name="variantPrice" inputmode="decimal" placeholder="e.g. 999" value="${esc(v.price)}">
+      </label>
+      <label class="wide">Product Link
+        <input name="variantLink" type="url" required placeholder="https://..." value="${esc(v.link)}">
+      </label>
+    </div>`).join("");
 
   openModal(
     x.id ? "Edit Product" : "Add Product",
     `
       <div class="product-form-grid">
         <label>Brand Name
-          <input
-            name="brand"
-            required
-            placeholder="e.g. Nike"
-            value="${esc(x.brand)}"
-          >
+          <input name="brand" required placeholder="e.g. Nike" value="${esc(x.brand)}">
         </label>
-
-        <label>Product Type
-          <input
-            name="productType"
-            required
-            placeholder="e.g. Shoes"
-            value="${esc(x.productType)}"
-          >
+        <label>Description
+          <input name="description" placeholder="Product/deal description" value="${esc(x.description || "")}">
         </label>
-
-        <label class="wide">Description
-          <textarea name="description" rows="2">${esc(x.description || "")}</textarea>
-        </label>
-
-        <label>Price (₹)
-          <input
-            name="price"
-            inputmode="decimal"
-            value="${esc(x.price || "")}"
-          >
-        </label>
-
         <label>Platform
           <select name="platform">
-            ${["Amazon", "Flipkart", "Nykaa", "Myntra", "Other"]
-              .map(v => `<option ${x.platform === v ? "selected" : ""}>${v}</option>`)
-              .join("")}
+            ${["Amazon", "Flipkart", "Nykaa", "Myntra", "Other"].map(v => `<option ${x.platform === v ? "selected" : ""}>${v}</option>`).join("")}
           </select>
         </label>
-
         <label>Allotted Quantity
-          <input
-            name="allottedQty"
-            type="number"
-            min="0"
-            step="any"
-            required
-            value="${esc(x.allottedQty ?? 0)}"
-          >
+          <input name="allottedQty" type="number" min="0" step="any" required value="${esc(x.allottedQty ?? 0)}">
         </label>
-
         <label>Quantity Unit
-          <input
-            name="quantityUnit"
-            placeholder="units, pieces, packs"
-            value="${esc(x.quantityUnit || "units")}"
-          >
+          <input name="quantityUnit" placeholder="units, pieces, packs" value="${esc(x.quantityUnit || "units")}">
         </label>
-
         <label>Deal Start Date
           <input name="dealStartDate" type="date" value="${esc(x.dealStartDate || "")}">
         </label>
         <label>Deal End Date
           <input name="dealEndDate" type="date" value="${esc(x.dealEndDate || "")}">
         </label>
-        <label class="wide">Product Link
-          <input
-            name="link"
-            type="url"
-            required
-            placeholder="https://..."
-            value="${esc(x.link || "")}" 
-          >
-        </label>
       </div>
-
-      <p class="hint">
-        Each share record allocates one unit.
-        Product Ordered is tracked separately.
-      </p>
+      <section class="product-links-editor">
+        <div class="product-links-title">
+          <div><h3>Product links</h3><p class="hint">Add a separate type, price and link for each option.</p></div>
+          <button type="button" class="primary" id="addProductLinkRow">+ Add link</button>
+        </div>
+        <div id="productLinkRows">${linkRows(existingLinks)}</div>
+      </section>
+      <p class="hint">Each share record allocates one unit. Product Ordered is tracked separately. Existing products and share history will be preserved.</p>
     `,
     f => {
       const brand = f.get("brand").trim();
       const allottedQty = Number(f.get("allottedQty"));
-
       if (!Number.isFinite(allottedQty) || allottedQty < 0) {
-        alert("Enter a valid allotted quantity.");
-        return;
+        alert("Enter a valid allotted quantity."); return;
       }
-
+      const types = f.getAll("variantProductType");
+      const prices = f.getAll("variantPrice");
+      const urls = f.getAll("variantLink");
+      const links = urls.map((link, i) => ({
+        productType: String(types[i] || "").trim(),
+        price: String(prices[i] || "").trim(),
+        link: String(link || "").trim()
+      })).filter(v => v.productType || v.price || v.link);
+      if (!links.length || links.some(v => !v.productType || !v.link)) {
+        alert("Each product link needs a product type and a valid link. Remove any unused rows."); return;
+      }
+      const primary = links[0];
       const obj = {
-        ...x,
-        id: x.id || uid(),
-        name: brand,
-        brand,
-        productType: f.get("productType").trim(),
+        ...x, id: x.id || uid(), name: brand, brand,
+        productType: primary.productType,
         description: f.get("description").trim(),
-        price: f.get("price").trim(),
+        price: primary.price,
         platform: f.get("platform"),
-        link: f.get("link").trim(),
+        link: primary.link,
+        links,
         allottedQty,
         quantityUnit: f.get("quantityUnit").trim() || "units",
         dealStartDate: f.get("dealStartDate") || "",
@@ -449,19 +422,37 @@ function addProduct(x) {
         createdAt: x.createdAt || new Date().toISOString()
       };
       if (obj.dealStartDate && obj.dealEndDate && obj.dealEndDate < obj.dealStartDate) {
-        alert("Deal end date cannot be before the start date.");
-        return;
+        alert("Deal end date cannot be before the start date."); return;
       }
-
       const i = state.products.findIndex(p => p.id === obj.id);
-
-      if (i >= 0) {
-        state.products[i] = { ...state.products[i], ...obj };
-      } else {
-        state.products.unshift(obj); // newest products appear first
-      }
+      if (i >= 0) state.products[i] = { ...state.products[i], ...obj };
+      else state.products.unshift(obj);
     }
   );
+
+  const rowsEl = document.getElementById("productLinkRows");
+  const refreshRemoveButtons = () => {
+    const rows = [...rowsEl.querySelectorAll("[data-product-link-row]")];
+    rows.forEach((row, i) => {
+      row.querySelector("b").textContent = `Product link ${i + 1}`;
+      const btn = row.querySelector("[data-remove-product-link]");
+      btn.disabled = rows.length === 1;
+      btn.setAttribute("aria-disabled", rows.length === 1 ? "true" : "false");
+    });
+  };
+  document.getElementById("addProductLinkRow").addEventListener("click", () => {
+    const row = document.createElement("div");
+    row.className = "product-link-row";
+    row.setAttribute("data-product-link-row", "");
+    row.innerHTML = `<div class="product-link-row-head"><b>Product link</b><button type="button" class="secondary small" data-remove-product-link>Remove</button></div><label>Product Type<input name="variantProductType" required placeholder="e.g. Shoes"></label><label>Price (₹)<input name="variantPrice" inputmode="decimal" placeholder="e.g. 999"></label><label class="wide">Product Link<input name="variantLink" type="url" required placeholder="https://..."></label>`;
+    rowsEl.appendChild(row); refreshRemoveButtons();
+    row.querySelector('input[name="variantProductType"]').focus();
+  });
+  rowsEl.addEventListener("click", e => {
+    const btn = e.target.closest("[data-remove-product-link]");
+    if (!btn || btn.disabled) return;
+    btn.closest("[data-product-link-row]").remove(); refreshRemoveButtons();
+  });
 }
 
 $("addContact").onclick = () => addContact();
@@ -755,7 +746,8 @@ function renderProducts() {
       product.brand + " " +
       product.productType + " " +
       product.platform + " " +
-      product.link
+      product.link + " " +
+      (Array.isArray(product.links) ? product.links.map(v => [v.productType, v.price, v.link].join(" ")).join(" ") : "")
     ).toLowerCase();
 
     const matchesSearch = text.includes(q);
@@ -792,7 +784,7 @@ function renderProducts() {
                   : ""}
               </p>
 
-              <p><a href="${esc(product.link)}" target="_blank" rel="noopener">${esc(product.link)}</a></p>
+              ${(Array.isArray(product.links) && product.links.length ? product.links : [{productType: product.productType, price: product.price, link: product.link}]).map((v, i) => `<p><b>${esc(v.productType || "Product type")}</b>${v.price ? " · ₹" + esc(v.price) : ""}<br><a href="${esc(v.link || "#")}" target="_blank" rel="noopener">${esc(v.link || "No link")}</a></p>`).join("")}
               <p><b>Deal dates:</b> ${esc(product.dealStartDate || "Not set")} → ${esc(product.dealEndDate || "No end date")}</p>
 
               <p>
