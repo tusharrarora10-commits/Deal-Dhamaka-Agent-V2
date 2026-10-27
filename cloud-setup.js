@@ -1,169 +1,41 @@
-/* Supabase connection + explicit, non-destructive first migration tools.
-   This phase intentionally does not replace local save() with automatic cloud writes. */
-(function () {
-  const cfg = window.DEAL_DHAMAKA_SUPABASE_CONFIG || {};
-  const PLACEHOLDER = "PASTE_YOUR_SB_PUBLISHABLE_KEY_HERE";
-  let client = null, workspaceId = null, user = null, busy = false;
-  const TABLES = {
-    contacts: "dd_contacts",
-    products: "dd_products",
-    shares: "dd_shares",
-    activity: "dd_activity",
-    templates: "dd_templates"
-  };
-  const $ = id => document.getElementById(id);
-  const escapeHtml = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-
-  function setStatus(message, type) {
-    const el = $("ddCloudStatus");
-    if (el) { el.textContent = message; el.dataset.type = type || "info"; }
-  }
-  function setBusy(value) {
-    busy = value;
-    ["ddCloudSignIn", "ddCloudSignOut", "ddCloudBackup", "ddCloudImport", "ddCloudRefresh"].forEach(id => { const el=$(id); if(el) el.disabled=value; });
-  }
-  function getLocalState() {
-    try { return JSON.parse(localStorage.getItem("dealDhamakaAgentV2") || "{}"); }
-    catch (_) { return {}; }
-  }
-  function normalizeState(x) {
-    return {
-      contacts: Array.isArray(x.contacts) ? x.contacts : [],
-      products: Array.isArray(x.products) ? x.products : [],
-      shares: Array.isArray(x.shares) ? x.shares : [],
-      activity: Array.isArray(x.activity) ? x.activity : [],
-      templates: Array.isArray(x.templates) ? x.templates : []
-    };
-  }
-  function recordId(row, prefix, i) {
-    if (row && row.id != null && String(row.id).trim()) return String(row.id);
-    return prefix + "-migration-" + i + "-" + btoa(unescape(encodeURIComponent(JSON.stringify(row || {})))).replace(/[^a-zA-Z0-9]/g, "").slice(0, 18);
-  }
-  function getWhatsAppTemplates() {
-    try { const x=JSON.parse(localStorage.getItem("dealDhamakaWhatsAppTemplatesV1") || "[]"); return Array.isArray(x) ? x : []; }
-    catch (_) { return []; }
-  }
-  function rowCount(x) { return Object.values(normalizeState(x)).reduce((n,a)=>n+a.length,0) + getWhatsAppTemplates().length; }
-  async function ensureClient() {
-    if (!cfg.url || !cfg.publishableKey || cfg.publishableKey === PLACEHOLDER) throw new Error("Add your Supabase publishable key in supabase-config.js first.");
-    if (!window.supabase || !window.supabase.createClient) throw new Error("Supabase client library did not load. Check your internet connection and reload the app.");
-    if (!client) client = window.supabase.createClient(cfg.url, cfg.publishableKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
-    return client;
-  }
-  async function findWorkspace() {
-    const { data, error } = await client.from("dd_workspace_members").select("workspace_id,role").eq("user_id", user.id);
-    if (error) throw error;
-    if (!data || !data.length) throw new Error("This account is not a member of the Deal Dhamaka workspace. Check dd_workspace_members.");
-    if (data.length > 1) throw new Error("This account belongs to more than one workspace. Ask the administrator to select the correct workspace.");
-    workspaceId = data[0].workspace_id;
-    return data[0];
-  }
-  async function countCloudRecords() {
-    let total = 0;
-    for (const table of Object.values(TABLES)) {
-      const { count, error } = await client.from(table).select("id", { count: "exact", head: true }).eq("workspace_id", workspaceId);
-      if (error) throw error;
-      total += count || 0;
-    }
-    return total;
-  }
-  async function backupLocal() {
-    const data = getLocalState();
-    const blob = new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), localStorageKey: "dealDhamakaAgentV2", data }, null, 2)], {type:"application/json"});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href=url; a.download="deal-dhamaka-local-backup-"+new Date().toISOString().slice(0,10)+".json"; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-    return data;
-  }
-  async function migrateLocal() {
-    if (busy || !client || !user || !workspaceId) return;
-    setBusy(true);
-    try {
-      const local = normalizeState(getLocalState());
-      const localCount = rowCount(local);
-      if (!localCount) throw new Error("No local records were found under dealDhamakaAgentV2 on this browser.");
-      const cloudCount = await countCloudRecords();
-      if (cloudCount > 0) throw new Error("Cloud tables already contain " + cloudCount + " records. Automatic migration is blocked to avoid duplicates or overwriting shared data.");
-      if (!confirm("Before migration, a local JSON backup will download. Then " + localCount + " local records will be copied to the shared workspace. Continue?")) return;
-      await backupLocal();
-      let written = 0;
-      for (const [stateKey, table] of Object.entries(TABLES)) {
-        const rows = local[stateKey];
-        for (let i=0; i<rows.length; i++) {
-          const item = rows[i];
-          const id = recordId(item, stateKey.slice(0,-1) || stateKey, i);
-          const { error } = await client.from(table).upsert({ workspace_id: workspaceId, id, payload: item, updated_at: new Date().toISOString(), updated_by: user.id }, { onConflict: "workspace_id,id" });
-          if (error) throw new Error(table + " migration stopped after " + written + " records: " + error.message);
-          written++;
-        }
-      }
-      // The WhatsApp message templates use a separate legacy localStorage key.
-      const waTemplates = getWhatsAppTemplates();
-      for (let i=0; i<waTemplates.length; i++) {
-        const item = waTemplates[i];
-        const id = "whatsapp-template-" + recordId(item, "template", i);
-        const { error } = await client.from(TABLES.templates).upsert({ workspace_id: workspaceId, id, payload: { ...item, _source: "dealDhamakaWhatsAppTemplatesV1" }, updated_at: new Date().toISOString(), updated_by: user.id }, { onConflict: "workspace_id,id" });
-        if (error) throw new Error("WhatsApp template migration stopped after " + written + " records: " + error.message);
-        written++;
-      }
-      setStatus("Migration completed: " + written + " records copied. Local data remains intact. Verify counts before enabling ongoing sync.", "success");
-      alert("Migration completed: " + written + " records copied. Your local data was not deleted.");
-    } catch (e) {
-      setStatus(e.message || String(e), "error");
-      alert("Migration did not complete: " + (e.message || String(e)));
-    } finally { setBusy(false); }
-  }
-  async function inspectCloud() {
-    if (busy || !client || !user || !workspaceId) return;
-    setBusy(true);
-    try {
-      const counts = {};
-      for (const [key, table] of Object.entries(TABLES)) {
-        const { count, error } = await client.from(table).select("id", {count:"exact", head:true}).eq("workspace_id", workspaceId);
-        if (error) throw error;
-        counts[key] = count || 0;
-      }
-      setStatus("Connected. Cloud record counts — " + Object.entries(counts).map(([k,v])=>k+": "+v).join(" · ") + ". Ongoing real-time sync is not enabled in this setup phase.", "success");
-    } catch(e) { setStatus(e.message || String(e), "error"); }
-    finally { setBusy(false); }
-  }
-  async function signIn(e) {
-    e.preventDefault(); if (busy) return;
-    setBusy(true);
-    try {
-      await ensureClient();
-      const email = $("ddCloudEmail").value.trim();
-      const password = $("ddCloudPassword").value;
-      const { data, error } = await client.auth.signInWithPassword({email, password});
-      if (error) throw error;
-      user = data.user;
-      await findWorkspace();
-      $("ddCloudIdentity").textContent = "Signed in as " + user.email + " · workspace verified";
-      $("ddCloudLoginForm").hidden = true;
-      $("ddCloudActions").hidden = false;
-      await inspectCloud();
-    } catch (e2) {
-      setStatus(e2.message || String(e2), "error");
-    } finally { setBusy(false); }
-  }
-  async function signOut() {
-    if (!client) return;
-    setBusy(true);
-    try { await client.auth.signOut(); user=null; workspaceId=null; $("ddCloudLoginForm").hidden=false; $("ddCloudActions").hidden=true; $("ddCloudIdentity").textContent="Not signed in"; setStatus("Signed out. Local app data remains on this device.","info"); }
-    catch(e){setStatus(e.message||String(e),"error");}
-    finally{setBusy(false);}
-  }
-  function mount() {
-    const settings = $("settings");
-    if (!settings || $("ddCloudCard")) return;
-    const card = document.createElement("div"); card.className="card"; card.id="ddCloudCard";
-    card.innerHTML = '<h3>Shared Cloud (Setup)</h3><p class="hint">Sign in to verify workspace access and inspect the cloud database. Local data stays on this device until you explicitly migrate it.</p><p id="ddCloudIdentity">Not signed in</p><div id="ddCloudStatus" role="status" aria-live="polite">Add the publishable key in supabase-config.js, then sign in.</div><form id="ddCloudLoginForm"><label>Email<input id="ddCloudEmail" type="email" autocomplete="username" required></label><label>Password<input id="ddCloudPassword" type="password" autocomplete="current-password" required></label><button class="primary full" id="ddCloudSignIn" type="submit">Sign in to Supabase</button></form><div id="ddCloudActions" hidden><button class="secondary full" id="ddCloudBackup" type="button">Download local backup</button><button class="primary full" id="ddCloudImport" type="button">Migrate local data to empty cloud</button><button class="secondary full" id="ddCloudRefresh" type="button">Check cloud record counts</button><button class="secondary full" id="ddCloudSignOut" type="button">Sign out</button></div><p class="hint">This is a staged setup utility. It does not enable continuous real-time sync or change the existing local save behavior. Do not deploy as a completed cloud-sync release yet.</p>';
-    settings.appendChild(card);
-    $("ddCloudLoginForm").addEventListener("submit", signIn);
-    $("ddCloudSignOut").addEventListener("click", signOut);
-    $("ddCloudBackup").addEventListener("click", async()=>{try{await backupLocal();setStatus("Local backup download started.","success");}catch(e){setStatus(e.message||String(e),"error");}});
-    $("ddCloudImport").addEventListener("click", migrateLocal);
-    $("ddCloudRefresh").addEventListener("click", inspectCloud);
-  }
-  window.addEventListener("DOMContentLoaded", mount);
-  if (document.readyState !== "loading") mount();
+/* Deal Dhamaka V2 cloud bridge. Local-first, additive migration, row-level sync. */
+(function(){
+'use strict';
+const cfg=window.DEAL_DHAMAKA_SUPABASE_CONFIG||{}, PLACEHOLDER='PASTE_YOUR_SB_PUBLISHABLE_KEY_HERE';
+const KEY='dealDhamakaAgentV2', TEMPLATE_KEY='dealDhamakaWhatsAppTemplatesV1';
+const TABLES={contacts:'dd_contacts',products:'dd_products',shares:'dd_shares',activity:'dd_activity',templates:'dd_templates'};
+let client=null,workspaceId=null,user=null,busy=false,syncing=false,channel=null,baseline={};
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function status(s,type){const e=$('ddCloudStatus');if(e){e.textContent=s;e.dataset.type=type||'info';}}
+function setBusy(v){busy=v;['ddCloudSignIn','ddCloudSignOut','ddCloudBackup','ddCloudImport','ddCloudRefresh'].forEach(id=>{if($(id))$(id).disabled=v;});}
+function normalize(x){return {contacts:Array.isArray(x.contacts)?x.contacts:[],products:Array.isArray(x.products)?x.products:[],shares:Array.isArray(x.shares)?x.shares:[],activity:Array.isArray(x.activity)?x.activity:[],templates:Array.isArray(x.templates)?x.templates:[]};}
+function local(){try{return normalize(JSON.parse(localStorage.getItem(KEY)||'{}'));}catch(_){return normalize({});}}
+function waTemplates(){try{const a=JSON.parse(localStorage.getItem(TEMPLATE_KEY)||'[]');return Array.isArray(a)?a:[];}catch(_){return [];}}
+function idOf(r,k,i){return r&&r.id!=null&&String(r.id).trim()?String(r.id):k+'-migration-'+i;}
+function errorText(e){const parts=[e&&e.message,e&&e.details,e&&e.hint,e&&e.code,e&&e.name].filter(Boolean);return parts.join(' | ')||String(e||'Unknown error');}
+async function ensure(){if(!cfg.url||!cfg.publishableKey||cfg.publishableKey===PLACEHOLDER)throw Error('Supabase URL/publishable key is missing.');if(!window.supabase?.createClient)throw Error('Supabase JS library did not load. Reload on a stable connection; no records were changed.');if(!client)client=window.supabase.createClient(cfg.url,cfg.publishableKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});return client;}
+async function findWorkspace(){const {data,error}=await client.from('dd_workspace_members').select('workspace_id,role').eq('user_id',user.id);if(error)throw error;if(!data?.length)throw Error('Signed-in account is not a member of a workspace.');if(data.length!==1)throw Error('Account has multiple workspace memberships; select the intended workspace before syncing.');workspaceId=data[0].workspace_id;return data[0];}
+async function counts(){const out={};for(const [k,t] of Object.entries(TABLES)){const {count,error}=await client.from(t).select('id',{count:'exact',head:true}).eq('workspace_id',workspaceId);if(error)throw error;out[k]=count||0;}return out;}
+function total(c){return Object.values(c).reduce((a,b)=>a+b,0);}
+async function backup(){const data=JSON.parse(localStorage.getItem(KEY)||'{}');const blob=new Blob([JSON.stringify({exportedAt:new Date().toISOString(),localStorageKey:KEY,data,whatsappTemplates:waTemplates()},null,2)],{type:'application/json'});const u=URL.createObjectURL(blob);const a=document.createElement('a');a.href=u;a.download='deal-dhamaka-backup-'+new Date().toISOString().slice(0,10)+'.json';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),3000);return data;}
+async function upsertOne(k,item,i){const id=idOf(item,k,i);const row={workspace_id:workspaceId,id,payload:item,updated_at:new Date().toISOString(),updated_by:user.id};const {error}=await client.from(TABLES[k]).upsert(row,{onConflict:'workspace_id,id'});if(error)throw Object.assign(new Error(TABLES[k]+' · '+errorText(error)),{cause:error});}
+async function migrate(){if(busy||!client||!user||!workspaceId)return;setBusy(true);try{const s=local(), wa=waTemplates();const n=Object.fromEntries(Object.keys(TABLES).map(k=>[k,s[k].length]));n.whatsAppTemplates=wa.length;const cc=await counts();if(total(cc)>0)throw Error('Migration stopped safely: cloud is not empty ('+JSON.stringify(cc)+'). No import was attempted.');if(total(n)===0)throw Error('No local records found.');if(!confirm('A fresh backup will download. Import '+JSON.stringify(n)+' into the empty workspace? Local data will not be deleted.'))return;await backup();let written=0;
+for(const k of Object.keys(TABLES)){for(let i=0;i<s[k].length;i++){await upsertOne(k,s[k][i],i);written++;}}
+for(let i=0;i<wa.length;i++){const item=wa[i], id='whatsapp-template-'+idOf(item,'template',i);const {error}=await client.from(TABLES.templates).upsert({workspace_id:workspaceId,id,payload:{...item,_source:TEMPLATE_KEY},updated_at:new Date().toISOString(),updated_by:user.id},{onConflict:'workspace_id,id'});if(error)throw new Error('dd_templates WhatsApp templates · '+errorText(error));written++;}
+const after=await counts();status('Migration completed. Imported '+written+' records. Cloud counts: '+JSON.stringify(after)+'. Local data remains unchanged.','success');baseline=JSON.parse(JSON.stringify(local()));startSync();alert('Migration completed. Imported '+written+' records. Keep your backup. Cloud counts: '+JSON.stringify(after));
+}catch(e){const msg=errorText(e);status('Migration failed safely: '+msg+'. Check connection and API logs; local data was not deleted.','error');alert('Migration failed: '+msg+'\n\nLocal data was not deleted. Do not retry until the error is resolved.');}finally{setBusy(false);}}
+async function inspect(){if(busy||!client||!user||!workspaceId)return;setBusy(true);try{const c=await counts();status('Connected. Cloud counts — '+Object.entries(c).map(([k,v])=>k+': '+v).join(' · ')+(syncing?' · Real-time sync listening':' · Real-time sync not started; import or load cloud first.'),'success');}catch(e){status('Cloud check failed: '+errorText(e),'error');}finally{setBusy(false);}}
+function mergeCloudRows(k,rows){const current=local(), arr=current[k]||[], byId=new Map(arr.map((x,i)=>[String(x?.id??'__missing_'+i),x]));for(const row of rows||[]){const p=row.payload;if(!p||typeof p!=='object')continue;const id=String(p.id??row.id);byId.set(id,p);}current[k]=Array.from(byId.values());syncing=true;try{localStorage.setItem(KEY,JSON.stringify(current));}finally{syncing=false;}baseline=JSON.parse(JSON.stringify(current));window.dispatchEvent(new CustomEvent('deal-dhamaka-data-updated'));if(typeof window.renderAll==='function')try{window.renderAll();}catch(_){} }
+async function pullAll(){for(const [k,t] of Object.entries(TABLES)){const {data,error}=await client.from(t).select('id,payload,updated_at').eq('workspace_id',workspaceId);if(error)throw error;if(k==='templates'){const wa=(data||[]).filter(r=>r.payload&&r.payload._source===TEMPLATE_KEY).map(r=>{const x={...r.payload};delete x._source;return x;});if(wa.length){syncing=true;try{localStorage.setItem(TEMPLATE_KEY,JSON.stringify(wa));}finally{syncing=false;}}const appRows=(data||[]).filter(r=>!(r.payload&&r.payload._source===TEMPLATE_KEY));mergeCloudRows(k,appRows);}else mergeCloudRows(k,data||[]);} }
+async function pushChanges(){if(!syncing||!client||!workspaceId||!user)return;const now=local();for(const k of Object.keys(TABLES)){const old=new Map((baseline[k]||[]).map((r,i)=>[String(r?.id??'__missing_'+i),JSON.stringify(r)]));for(let i=0;i<now[k].length;i++){const r=now[k][i],id=String(r?.id??'');if(!id)continue;if(old.get(id)!==JSON.stringify(r)){await upsertOne(k,r,i);}}}for(const [i,item] of waTemplates().entries()){const id='whatsapp-template-'+idOf(item,'template',i);const {error}=await client.from(TABLES.templates).upsert({workspace_id:workspaceId,id,payload:{...item,_source:TEMPLATE_KEY},updated_at:new Date().toISOString(),updated_by:user.id},{onConflict:'workspace_id,id'});if(error)throw new Error('WhatsApp template sync failed: '+errorText(error));}baseline=JSON.parse(JSON.stringify(now));}
+let pushTimer=null;function schedulePush(){if(!syncing||busy)return;clearTimeout(pushTimer);pushTimer=setTimeout(()=>pushChanges().catch(e=>status('Sync write failed: '+errorText(e)+'. Local changes remain on this device.','error')),700);}
+function startSync(){if(!client||!workspaceId||!user||channel)return;syncing=true;baseline=JSON.parse(JSON.stringify(local()));channel=client.channel('deal-dhamaka-workspace-'+workspaceId);for(const t of Object.values(TABLES))channel.on('postgres_changes',{event:'*',schema:'public',table:t,filter:'workspace_id=eq.'+workspaceId},async()=>{try{await pullAll();}catch(e){status('Realtime refresh failed: '+errorText(e),'error');}});channel.subscribe(s=>{if(s==='SUBSCRIBED')status('Real-time sync is listening for shared changes.','success');else if(s==='CHANNEL_ERROR'||s==='TIMED_OUT')status('Realtime subscription status: '+s+'. Verify Supabase Realtime is enabled for dd_* tables.','error');});}
+async function loadCloud(){if(busy||!client||!user||!workspaceId)return;setBusy(true);try{const c=await counts();if(total(c)===0){status('Cloud is empty. Use migration only after confirming the latest backup.','info');return;}if(!confirm('Load shared cloud records into this browser? Existing local records with matching IDs will be refreshed; local-only records are preserved.'))return;await pullAll();startSync();status('Cloud data loaded. Real-time sync subscription started.','success');}catch(e){status('Cloud load failed: '+errorText(e),'error');}finally{setBusy(false);}}
+async function signIn(e){e.preventDefault();if(busy)return;setBusy(true);try{await ensure();const {data,error}=await client.auth.signInWithPassword({email:$('ddCloudEmail').value.trim(),password:$('ddCloudPassword').value});if(error)throw error;user=data.user;await findWorkspace();$('ddCloudIdentity').textContent='Signed in as '+user.email+' · workspace verified';$('ddCloudLoginForm').hidden=true;$('ddCloudActions').hidden=false;await inspect();}catch(e2){status('Sign-in/setup failed: '+errorText(e2),'error');}finally{setBusy(false);}}
+async function signOut(){if(!client)return;setBusy(true);try{if(channel){await client.removeChannel(channel);channel=null;}syncing=false;await client.auth.signOut();user=null;workspaceId=null;$('ddCloudLoginForm').hidden=false;$('ddCloudActions').hidden=true;$('ddCloudIdentity').textContent='Not signed in';status('Signed out. Local app data remains on this device.','info');}catch(e){status(errorText(e),'error');}finally{setBusy(false);}}
+function mount(){const settings=$('settings');if(!settings||$('ddCloudCard'))return;const card=document.createElement('div');card.className='card';card.id='ddCloudCard';card.innerHTML='<h3>Shared Cloud</h3><p class="hint">Sign in to the shared workspace. Keep a backup before migration. Local-first storage is preserved.</p><p id="ddCloudIdentity">Not signed in</p><div id="ddCloudStatus" role="status" aria-live="polite">Supabase is configured. Sign in to continue.</div><form id="ddCloudLoginForm"><label>Email<input id="ddCloudEmail" type="email" autocomplete="username" required></label><label>Password<input id="ddCloudPassword" type="password" autocomplete="current-password" required></label><button class="primary full" id="ddCloudSignIn" type="submit">Sign in to Supabase</button></form><div id="ddCloudActions" hidden><button class="secondary full" id="ddCloudBackup" type="button">Download local backup</button><button class="primary full" id="ddCloudImport" type="button">Migrate local data to empty cloud</button><button class="secondary full" id="ddCloudLoad" type="button">Load shared cloud data / start sync</button><button class="secondary full" id="ddCloudRefresh" type="button">Check cloud record counts</button><button class="secondary full" id="ddCloudSignOut" type="button">Sign out</button></div><p class="hint">Migration is additive and does not delete local data. Realtime depends on Supabase table publication and valid RLS policies. Review counts after migration.</p>';settings.appendChild(card);$('ddCloudLoginForm').addEventListener('submit',signIn);$('ddCloudSignOut').addEventListener('click',signOut);$('ddCloudBackup').addEventListener('click',()=>backup().then(()=>status('Backup download started.','success')).catch(e=>status(errorText(e),'error')));$('ddCloudImport').addEventListener('click',migrate);$('ddCloudLoad').addEventListener('click',loadCloud);$('ddCloudRefresh').addEventListener('click',inspect);}
+// Observe legacy writes so existing app scripts remain compatible. Sync writes only changed records; deletes are intentionally not propagated automatically.
+const originalSet=Storage.prototype.setItem;Storage.prototype.setItem=function(k,v){originalSet.call(this,k,v);if(!syncing&&(k===KEY||k===TEMPLATE_KEY))schedulePush();};
+window.addEventListener('DOMContentLoaded',mount);if(document.readyState!=='loading')mount();
 })();
