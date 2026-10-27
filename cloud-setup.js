@@ -84,9 +84,20 @@ async function upsertOne(k,item,i){
   throw new Error('Migration request failed before a normal Supabase response: table='+table+', local record index='+(i+1)+' of '+(local()[k]||[]).length+', record id='+id+', payload bytes='+new TextEncoder().encode(payloadJson).length+', payload fields=['+fields+']; browser/SDK error: '+message+'. No personal field values were included.');
  }
 }
+async function insertMigrationOne(k,item,i,totalRows){
+ const table=TABLES[k],id=idOf(item,k,i);
+ let payloadJson;
+ try{payloadJson=JSON.stringify(item);if(payloadJson===undefined)throw new Error('payload could not be serialized');}
+ catch(e){throw new Error('Migration diagnostic: table='+table+', local record index='+(i+1)+' of '+totalRows+', record id='+id+', payload serialization failed: '+errorText(e)+'. No personal field values were included.');}
+ const row={workspace_id:workspaceId,id,payload:item,updated_at:new Date().toISOString(),updated_by:user.id};
+ let result;
+ try{result=await client.from(table).insert(row).select('id').single();}
+ catch(e){throw new Error('Migration INSERT request failed before a normal Supabase response: table='+table+', local record index='+(i+1)+' of '+totalRows+', record id='+id+', payload bytes='+new TextEncoder().encode(payloadJson).length+', payload fields=['+(item&&typeof item==='object'?Object.keys(item).join(', '):'(payload is not an object)')+']; browser/SDK error: '+errorText(e)+'. No personal field values were included.');}
+ if(result.error)throw new Error('Migration INSERT rejected: table='+table+', local record index='+(i+1)+' of '+totalRows+', record id='+id+', payload bytes='+new TextEncoder().encode(payloadJson).length+', payload fields=['+(item&&typeof item==='object'?Object.keys(item).join(', '):'(payload is not an object)')+']; Supabase error: '+errorText(result.error));
+}
 async function migrate(){if(busy||!client||!user||!workspaceId)return;setBusy(true);try{const s=local(), wa=waTemplates();const n=Object.fromEntries(Object.keys(TABLES).map(k=>[k,s[k].length]));n.whatsAppTemplates=wa.length;const cc=await counts();if(total(cc)>0)throw Error('Migration stopped safely: cloud is not empty ('+JSON.stringify(cc)+'). No import was attempted.');if(total(n)===0)throw Error('No local records found.');if(!confirm('A fresh backup will download. Import '+JSON.stringify(n)+' into the empty workspace? Local data will not be deleted.'))return;await backup();let written=0;
-for(const k of Object.keys(TABLES)){for(let i=0;i<s[k].length;i++){await upsertOne(k,s[k][i],i);written++;}}
-for(let i=0;i<wa.length;i++){const item=wa[i], id='whatsapp-template-'+idOf(item,'template',i);const {error}=await client.from(TABLES.templates).upsert({workspace_id:workspaceId,id,payload:{...item,_source:TEMPLATE_KEY},updated_at:new Date().toISOString(),updated_by:user.id},{onConflict:'workspace_id,id'});if(error)throw new Error('dd_templates WhatsApp templates · '+errorText(error));written++;}
+for(const k of Object.keys(TABLES)){for(let i=0;i<s[k].length;i++){await insertMigrationOne(k,s[k][i],i,s[k].length);written++;}}
+for(let i=0;i<wa.length;i++){const item=wa[i], id='whatsapp-template-'+idOf(item,'template',i);const {error}=await client.from(TABLES.templates).insert({workspace_id:workspaceId,id,payload:{...item,_source:TEMPLATE_KEY},updated_at:new Date().toISOString(),updated_by:user.id});if(error)throw new Error('dd_templates WhatsApp templates · INSERT rejected at local record '+(i+1)+' of '+wa.length+' · '+errorText(error));written++;}
 const after=await counts();status('Migration completed. Imported '+written+' records. Cloud counts: '+JSON.stringify(after)+'. Local data remains unchanged.','success');baseline=JSON.parse(JSON.stringify(local()));startSync();alert('Migration completed. Imported '+written+' records. Keep your backup. Cloud counts: '+JSON.stringify(after));
 }catch(e){const msg=errorText(e);status('Migration failed safely: '+msg+'. Check connection and API logs; local data was not deleted.','error');alert('Migration failed: '+msg+'\n\nLocal data was not deleted. Do not retry until the error is resolved.');}finally{setBusy(false);}}
 async function inspect(){if(busy||!client||!user||!workspaceId)return;setBusy(true);try{const c=await counts();status('Connected. Cloud counts — '+Object.entries(c).map(([k,v])=>k+': '+v).join(' · ')+(syncing?' · Real-time sync listening':' · Real-time sync not started; import or load cloud first.'),'success');}catch(e){status('Cloud check failed: '+errorText(e),'error');}finally{setBusy(false);}}

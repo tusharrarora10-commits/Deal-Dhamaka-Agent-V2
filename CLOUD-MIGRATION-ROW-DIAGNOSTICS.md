@@ -1,7 +1,7 @@
-# Cloud migration row diagnostics
+# Cloud migration correction
 
-This build adds sanitized context when a migration upsert fails: table name, 1-based local record index, record ID, serialized payload size, and payload field names. It deliberately does not print contact names, phone numbers, product descriptions, message text, or other payload values.
+The initial migration now uses INSERT for each row instead of UPSERT with `onConflict: 'workspace_id,id'`. The migration already refuses to start unless all cloud tables are empty, so an upsert conflict target is unnecessary for the initial import. This aligns the migration path with the temporary insert test that succeeded and avoids relying on a composite conflict target during the first import.
 
-Do not retry migration until you have a fresh local backup. If it fails, capture the full alert/status message. A failure may happen after earlier rows have already been inserted, so check cloud counts before retrying; the migration stops if the cloud is no longer empty.
+Ongoing sync still uses upsert so existing rows can be updated. Migration remains sequential and local-first; local data is not deleted. If a later row fails after earlier inserts, check cloud counts before retrying because the import may be partially complete. Do not retry unless the cloud is empty or the remaining records have been reconciled.
 
-This patch has not been live-tested against Supabase. It is diagnostic only and does not change schema, policies, local storage keys, or deletion behavior.
+This is a code-level correction based on the evidence available; it has not been live-tested against the user's Supabase project.
