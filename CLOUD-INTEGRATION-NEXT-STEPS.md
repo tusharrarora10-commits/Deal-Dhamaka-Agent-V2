@@ -25,3 +25,6 @@ This package retains the existing localStorage key `dealDhamakaAgentV2`, current
 5. Confirm counts: contacts 51, products 54, shares 273, activity 232, plus any saved templates.
 6. Sign in as the second user on another device, choose “Load shared cloud data / start sync”, and test a harmless new test record before using real changes.
 7. Verify cross-device updates and RLS. Only then consider promoting the release.
+
+
+Migration reliability patch (2026-10-28): download the local backup manually before migration. Migration no longer triggers a browser download immediately before its first cloud write, and transient browser/SDK request throws are retried up to 3 times with backoff. Returned Supabase errors are not blindly retried. This targets the observed iOS Safari TypeError: Load failed, but must still be live-tested; it is not proof that the download interaction caused the failure.
