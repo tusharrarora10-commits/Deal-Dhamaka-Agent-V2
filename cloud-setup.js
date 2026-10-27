@@ -68,7 +68,22 @@ async function testCloudWrite(){
  }finally{setBusy(false);}
 }
 async function backup(){const data=JSON.parse(localStorage.getItem(KEY)||'{}');const blob=new Blob([JSON.stringify({exportedAt:new Date().toISOString(),localStorageKey:KEY,data,whatsappTemplates:waTemplates()},null,2)],{type:'application/json'});const u=URL.createObjectURL(blob);const a=document.createElement('a');a.href=u;a.download='deal-dhamaka-backup-'+new Date().toISOString().slice(0,10)+'.json';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),3000);return data;}
-async function upsertOne(k,item,i){const id=idOf(item,k,i);const row={workspace_id:workspaceId,id,payload:item,updated_at:new Date().toISOString(),updated_by:user.id};const {error}=await client.from(TABLES[k]).upsert(row,{onConflict:'workspace_id,id'});if(error)throw Object.assign(new Error(TABLES[k]+' · '+errorText(error)),{cause:error});}
+async function upsertOne(k,item,i){
+ const table=TABLES[k],id=idOf(item,k,i);
+ let payloadJson;
+ try{payloadJson=JSON.stringify(item);if(payloadJson===undefined)throw new Error('payload could not be serialized');}
+ catch(e){throw new Error('Migration diagnostic: table='+table+', local record index='+(i+1)+', record id='+id+', payload serialization failed: '+errorText(e)+'. No personal field values were included.');}
+ const row={workspace_id:workspaceId,id,payload:item,updated_at:new Date().toISOString(),updated_by:user.id};
+ try{
+  const {error}=await client.from(table).upsert(row,{onConflict:'workspace_id,id'});
+  if(error){const fields=item&&typeof item==='object'?Object.keys(item).join(', '):'(payload is not an object)';throw new Error('Migration write rejected: table='+table+', local record index='+(i+1)+' of '+(local()[k]||[]).length+', record id='+id+', payload bytes='+new TextEncoder().encode(payloadJson).length+', payload fields=['+fields+']; Supabase error: '+errorText(error));}
+ }catch(e){
+  const message=errorText(e);
+  if(message.startsWith('Migration write rejected:')||message.startsWith('Migration diagnostic:'))throw e;
+  const fields=item&&typeof item==='object'?Object.keys(item).join(', '):'(payload is not an object)';
+  throw new Error('Migration request failed before a normal Supabase response: table='+table+', local record index='+(i+1)+' of '+(local()[k]||[]).length+', record id='+id+', payload bytes='+new TextEncoder().encode(payloadJson).length+', payload fields=['+fields+']; browser/SDK error: '+message+'. No personal field values were included.');
+ }
+}
 async function migrate(){if(busy||!client||!user||!workspaceId)return;setBusy(true);try{const s=local(), wa=waTemplates();const n=Object.fromEntries(Object.keys(TABLES).map(k=>[k,s[k].length]));n.whatsAppTemplates=wa.length;const cc=await counts();if(total(cc)>0)throw Error('Migration stopped safely: cloud is not empty ('+JSON.stringify(cc)+'). No import was attempted.');if(total(n)===0)throw Error('No local records found.');if(!confirm('A fresh backup will download. Import '+JSON.stringify(n)+' into the empty workspace? Local data will not be deleted.'))return;await backup();let written=0;
 for(const k of Object.keys(TABLES)){for(let i=0;i<s[k].length;i++){await upsertOne(k,s[k][i],i);written++;}}
 for(let i=0;i<wa.length;i++){const item=wa[i], id='whatsapp-template-'+idOf(item,'template',i);const {error}=await client.from(TABLES.templates).upsert({workspace_id:workspaceId,id,payload:{...item,_source:TEMPLATE_KEY},updated_at:new Date().toISOString(),updated_by:user.id},{onConflict:'workspace_id,id'});if(error)throw new Error('dd_templates WhatsApp templates · '+errorText(error));written++;}
