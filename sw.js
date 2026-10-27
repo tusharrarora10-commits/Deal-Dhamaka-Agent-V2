@@ -1,7 +1,7 @@
 /* Deal Dhamaka Agent V2 — conservative offline cache.
    Dashboard visuals only; preserve app storage and all existing workflows.
    Do not delete unrelated caches on this origin during activation. */
-const CACHE = 'deal-dhamaka-v16-amazon-profile-links';
+const CACHE = 'deal-dhamaka-v17-supabase-setup';
 
 const ASSETS = [
   './',
@@ -20,7 +20,9 @@ const ASSETS = [
   './analytics.js',
   './recipient-timeline.js',
   './manifest.json',
-  './product-search-autocomplete.js'
+  './product-search-autocomplete.js',
+  './supabase-config.js',
+  './cloud-setup.js'
 ];
 
 self.addEventListener('install', event => {
