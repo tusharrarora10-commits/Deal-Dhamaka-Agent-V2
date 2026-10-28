@@ -1256,7 +1256,7 @@ function makeMessage(c, p) {
     : [{ productType: p.productType || "", description: p.description || "", price: p.price || "", link: p.link || "" }];
   const linkList = variants.map((v, i) => {
     const title = `${p.brand || p.name || "Brand"} - ${v.productType || p.productType || "Product"}`;
-    const details = [v.description || "", v.price !== "" && v.price != null ? `Price: ₹${v.price}` : ""].filter(Boolean);
+    const details = [v.description || ""].filter(Boolean);
     return `${i + 1}. ${title}${details.length ? `\n   ${details.join(" | ")}` : ""}\n   🔗 ${v.link || ""}`;
   }).join("\n\n");
   return `🥳 Something FREE is waiting for you! 🎁

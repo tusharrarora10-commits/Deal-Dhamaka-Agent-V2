@@ -124,8 +124,7 @@ Sharing this deal with you:
     const linkList = variants.map((v, i) => {
       const title = `${product.brand || product.name || "Brand"} - ${v.productType || product.productType || "Product"}`;
       const details = [
-        v.description || "",
-        v.price !== "" && v.price != null ? `Price: ₹${v.price}` : ""
+        v.description || ""
       ].filter(Boolean);
       return `${i + 1}. ${title}${details.length ? `\n   ${details.join(" | ")}` : ""}\n   🔗 ${v.link || ""}`;
     }).join("\n\n");
