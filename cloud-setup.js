@@ -14,9 +14,12 @@ function local(){try{return normalize(JSON.parse(localStorage.getItem(KEY)||'{}'
 function waTemplates(){try{const a=JSON.parse(localStorage.getItem(TEMPLATE_KEY)||'[]');return Array.isArray(a)?a:[];}catch(_){return [];}}
 function idOf(r,k,i){return r&&r.id!=null&&String(r.id).trim()?String(r.id):k+'-migration-'+i;}
 function errorText(e){const parts=[e&&e.message,e&&e.details,e&&e.hint,e&&e.code,e&&e.name].filter(Boolean);return parts.join(' | ')||String(e||'Unknown error');}
+// Prevent Safari's UI from remaining locked indefinitely when a network request never settles.
+function withTimeout(promise,label,ms=15000){let timer;return Promise.race([promise,new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error(label+' timed out after '+Math.round(ms/1000)+' seconds')),ms);})]).finally(()=>clearTimeout(timer));}
+function yieldToUI(){return new Promise(resolve=>setTimeout(resolve,0));}
 async function ensure(){if(!cfg.url||!cfg.publishableKey||cfg.publishableKey===PLACEHOLDER)throw Error('Supabase URL/publishable key is missing.');if(!window.supabase?.createClient)throw Error('Supabase JS library did not load. Reload on a stable connection; no records were changed.');if(!client)client=window.supabase.createClient(cfg.url,cfg.publishableKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});return client;}
 async function findWorkspace(){const {data,error}=await client.from('dd_workspace_members').select('workspace_id,role').eq('user_id',user.id);if(error)throw error;if(!data?.length)throw Error('Signed-in account is not a member of a workspace.');if(data.length!==1)throw Error('Account has multiple workspace memberships; select the intended workspace before syncing.');workspaceId=data[0].workspace_id;return data[0];}
-async function counts(){const out={};for(const [k,t] of Object.entries(TABLES)){const {count,error}=await client.from(t).select('id',{count:'exact',head:true}).eq('workspace_id',workspaceId);if(error)throw error;out[k]=count||0;}return out;}
+async function counts(){const out={};for(const [k,t] of Object.entries(TABLES)){const {count,error}=await withTimeout(client.from(t).select('id',{count:'exact',head:true}).eq('workspace_id',workspaceId),'Count records in '+t);if(error)throw error;out[k]=count||0;}return out;}
 function total(c){return Object.values(c).reduce((a,b)=>a+b,0);}
 async function diagnose(){if(busy||!client||!user||!workspaceId)return;setBusy(true);status('Running read-only browser/network diagnostics…','info');const results=[];try{
   const sessionResult=await client.auth.getSession();
@@ -100,7 +103,7 @@ async function insertMigrationOne(k,item,i,totalRows){
 }
 async function fetchExistingIds(table){
  const ids=new Set();let from=0;const pageSize=500;
- while(true){const {data,error}=await client.from(table).select('id').eq('workspace_id',workspaceId).range(from,from+pageSize-1);if(error)throw new Error('Could not read existing IDs for '+table+': '+errorText(error));for(const row of (data||[]))ids.add(String(row.id));if(!data||data.length<pageSize)break;from+=pageSize;}
+ while(true){const {data,error}=await withTimeout(client.from(table).select('id').eq('workspace_id',workspaceId).range(from,from+pageSize-1),'Read existing IDs from '+table);if(error)throw new Error('Could not read existing IDs for '+table+': '+errorText(error));for(const row of (data||[]))ids.add(String(row.id));if(!data||data.length<pageSize)break;from+=pageSize;}
  return ids;
 }
 async function insertMissingOne(k,item,i,totalRows,existing){
@@ -109,7 +112,7 @@ async function insertMissingOne(k,item,i,totalRows,existing){
  const row={workspace_id:workspaceId,id,payload:item,updated_at:new Date().toISOString(),updated_by:user.id};let lastError=null;
  for(let attempt=1;attempt<=3;attempt++){
   try{
-   const result=await client.from(table).insert(row).select('id').single();
+   const result=await withTimeout(client.from(table).insert(row).select('id').single(),'Insert '+table+' record '+(i+1));
    if(!result.error){existing.add(id);return 'inserted';}
    lastError=result.error;
    const msg=errorText(lastError);
@@ -130,8 +133,14 @@ async function migrate(){
   let inserted=0,skipped=0;
   for(const k of Object.keys(TABLES)){
    const table=TABLES[k],existing=await fetchExistingIds(table),rows=s[k];
-   for(let i=0;i<rows.length;i++){const result=await insertMissingOne(k,rows[i],i,rows.length,existing);if(result==='inserted')inserted++;else skipped++;}
-   status('Reconciled '+table+': '+existing.size+' cloud IDs checked.','info');
+   for(let i=0;i<rows.length;i++){
+    status('Reconciling '+table+': local record '+(i+1)+' of '+rows.length+' · inserted '+inserted+' · skipped '+skipped+'. You can leave this page open; progress updates after each record.','info');
+    await yieldToUI();
+    const result=await insertMissingOne(k,rows[i],i,rows.length,existing);
+    if(result==='inserted')inserted++;else skipped++;
+   }
+   status('Completed '+table+': '+existing.size+' cloud IDs checked. Total inserted '+inserted+', skipped '+skipped+'.','info');
+   await yieldToUI();
   }
   const waTable=TABLES.templates,waExisting=await fetchExistingIds(waTable);
   for(let i=0;i<wa.length;i++){const item=wa[i],id='whatsapp-template-'+idOf(item,'template',i);if(waExisting.has(id)){skipped++;continue;}const row={workspace_id:workspaceId,id,payload:{...item,_source:TEMPLATE_KEY},updated_at:new Date().toISOString(),updated_by:user.id};let ok=false,last=null;for(let a=1;a<=3;a++){try{const r=await client.from(waTable).insert(row).select('id').single();if(!r.error){ok=true;break;}last=r.error;}catch(e){last=e;}if(!ok&&a<3){const {data,error}=await client.from(waTable).select('id').eq('workspace_id',workspaceId).eq('id',id).maybeSingle().catch(()=>({data:null,error:true}));if(!error&&data){ok=true;break;}await new Promise(resolve=>setTimeout(resolve,600*a));}}if(!ok)throw new Error('Resume failed: WhatsApp template '+(i+1)+' of '+wa.length+'; '+errorText(last)+'; rerun Resume / reconcile safely.');waExisting.add(id);inserted++;}
