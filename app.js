@@ -1693,42 +1693,128 @@ function renderTracking() {
     panel.className = "card";
     panel.innerHTML = `
       <h3>Manual Share / Order Entry</h3>
-      <p class="hint">Record a product shared outside the app, or mark an order received. This updates the same reports as normal shares.</p>
-      <label>Contact<select id="manualShareContact"><option value="">Select contact</option></select></label>
-      <label>Product<select id="manualShareProduct"><option value="">Select product</option></select></label>
+      <p class="hint">Select multiple contacts and products. Each selected contact-product combination will be recorded separately and included in reports.</p>
+      <div class="manual-multi-head">
+        <strong>Contacts</strong>
+        <span id="manualContactCount" class="hint">0 selected</span>
+      </div>
+      <input id="manualContactSearch" type="search" placeholder="Search contacts..." aria-label="Search contacts">
+      <div class="manual-multi-actions">
+        <button type="button" class="secondary" id="manualContactsAll">Select all</button>
+        <button type="button" class="secondary" id="manualContactsClear">Clear</button>
+      </div>
+      <div id="manualContactOptions" class="manual-multi-options" aria-label="Select multiple contacts"></div>
+
+      <div class="manual-multi-head">
+        <strong>Products</strong>
+        <span id="manualProductCount" class="hint">0 selected</span>
+      </div>
+      <input id="manualProductSearch" type="search" placeholder="Search products..." aria-label="Search products">
+      <div class="manual-multi-actions">
+        <button type="button" class="secondary" id="manualProductsAll">Select all</button>
+        <button type="button" class="secondary" id="manualProductsClear">Clear</button>
+      </div>
+      <div id="manualProductOptions" class="manual-multi-options" aria-label="Select multiple products"></div>
       <label class="checkrow"><input type="checkbox" id="manualShareOrdered"><span>Already ordered / received</span></label>
-      <button type="button" class="primary big" id="manualShareSave">Save manual record</button>
+      <p class="hint" id="manualCombinationCount">0 share records will be created.</p>
+      <button type="button" class="primary big" id="manualShareSave">Save manual records</button>
     `;
     trackingPage.insertBefore(panel, trackingPage.firstChild);
   }
-  const mc = $("manualShareContact"), mp = $("manualShareProduct");
-  if (mc && mp) {
-    const oldC = mc.value, oldP = mp.value;
-    mc.innerHTML = '<option value="">Select contact</option>' +
-      state.contacts.map(c => `<option value="${esc(c.id)}">${esc(c.name)} · ${esc(c.phone)}</option>`).join("");
-    mp.innerHTML = '<option value="">Select product</option>' +
-      state.products.map(p => `<option value="${esc(p.id)}">${esc(p.brand || p.name)} · ${esc(p.name)}</option>`).join("");
-    if (state.contacts.some(c => String(c.id) === oldC)) mc.value = oldC;
-    if (state.products.some(p => String(p.id) === oldP)) mp.value = oldP;
-    $("manualShareSave").onclick = () => {
-      const contact = state.contacts.find(c => String(c.id) === mc.value);
-      const product = state.products.find(p => String(p.id) === mp.value);
-      if (!contact || !product) return alert("Select both a contact and a product.");
-      const ordered = $("manualShareOrdered").checked, now = Date.now();
-      state.shares.push({
-        id:uid(),contactId:contact.id,contactName:contact.name,
-        phone:String(contact.phone || "").replace(/\\D/g,""),
-        productId:product.id,productName:product.name,brand:product.brand,
-        productType:product.productType,platform:product.platform,
-        priceSnapshot:Number(product.price)||0,time:now,
-        message:"Manually recorded in Deal Dhamaka Agent V2",
-        status:"Manually marked as shared",ordered,
-        orderedAt:ordered?new Date(now).toISOString():""
+
+  const contactBox = $("manualContactOptions"), productBox = $("manualProductOptions");
+  if (contactBox && productBox) {
+    const selectedContacts = new Set(
+      [...contactBox.querySelectorAll('input:checked')].map(x => x.value)
+    );
+    const selectedProducts = new Set(
+      [...productBox.querySelectorAll('input:checked')].map(x => x.value)
+    );
+    const renderChoices = (box, items, selected, kind, query) => {
+      const q = String(query || "").trim().toLowerCase();
+      const visible = items.filter(item => {
+        const hay = kind === "contact"
+          ? `${item.name || ""} ${item.phone || ""}`
+          : `${item.brand || ""} ${item.name || ""} ${item.productType || ""}`;
+        return hay.toLowerCase().includes(q);
       });
+      box.innerHTML = visible.length ? visible.map(item => {
+        const id = String(item.id);
+        const label = kind === "contact"
+          ? `${item.name || "Unnamed"} · ${item.phone || ""}`
+          : `${item.brand || item.name || "Product"} · ${item.name || ""}`;
+        return `<label class="manual-multi-option"><input type="checkbox" value="${esc(id)}" ${selected.has(id) ? "checked" : ""}><span>${esc(label)}</span></label>`;
+      }).join("") : '<p class="hint">No matching records.</p>';
+    };
+    renderChoices(contactBox, state.contacts, selectedContacts, "contact", $("manualContactSearch")?.value);
+    renderChoices(productBox, state.products, selectedProducts, "product", $("manualProductSearch")?.value);
+
+    const refreshManualCounts = () => {
+      const c = contactBox.querySelectorAll('input:checked').length;
+      const pr = productBox.querySelectorAll('input:checked').length;
+      $("manualContactCount").textContent = `${c} selected`;
+      $("manualProductCount").textContent = `${pr} selected`;
+      $("manualCombinationCount").textContent = `${c * pr} share record(s) will be created (${c} contacts × ${pr} products).`;
+      $("manualShareSave").disabled = !c || !pr;
+    };
+    const rerenderPreserving = () => {
+      const c = new Set([...contactBox.querySelectorAll('input:checked')].map(x=>x.value));
+      const pr = new Set([...productBox.querySelectorAll('input:checked')].map(x=>x.value));
+      renderChoices(contactBox,state.contacts,c,"contact",$("manualContactSearch").value);
+      renderChoices(productBox,state.products,pr,"product",$("manualProductSearch").value);
+      refreshManualCounts();
+    };
+    contactBox.onchange = rerenderPreserving;
+    productBox.onchange = rerenderPreserving;
+    $("manualContactSearch").oninput = rerenderPreserving;
+    $("manualProductSearch").oninput = rerenderPreserving;
+    $("manualContactsAll").onclick = () => {
+      const c = new Set([...contactBox.querySelectorAll('input')].map(x=>x.value));
+      state.contacts.forEach(x=>c.add(String(x.id)));
+      renderChoices(contactBox,state.contacts,c,"contact",$("manualContactSearch").value); refreshManualCounts();
+    };
+    $("manualContactsClear").onclick = () => { renderChoices(contactBox,state.contacts,new Set(),"contact",$("manualContactSearch").value); refreshManualCounts(); };
+    $("manualProductsAll").onclick = () => {
+      const v = new Set([...productBox.querySelectorAll('input')].map(x=>x.value));
+      state.products.forEach(x=>v.add(String(x.id)));
+      renderChoices(productBox,state.products,v,"product",$("manualProductSearch").value); refreshManualCounts();
+    };
+    $("manualProductsClear").onclick = () => { renderChoices(productBox,state.products,new Set(),"product",$("manualProductSearch").value); refreshManualCounts(); };
+
+    $("manualShareSave").onclick = () => {
+      const contactIds = [...contactBox.querySelectorAll('input:checked')].map(x=>x.value);
+      const productIds = [...productBox.querySelectorAll('input:checked')].map(x=>x.value);
+      if (!contactIds.length || !productIds.length) return alert("Select at least one contact and one product.");
+      const ordered = $("manualShareOrdered").checked;
+      const now = Date.now();
+      let created = 0;
+      contactIds.forEach(contactId => {
+        const contact = state.contacts.find(c=>String(c.id)===contactId);
+        if (!contact) return;
+        productIds.forEach(productId => {
+          const product = state.products.find(p=>String(p.id)===productId);
+          if (!product) return;
+          state.shares.push({
+            id:uid(),contactId:contact.id,contactName:contact.name,
+            phone:String(contact.phone || "").replace(/\D/g,""),
+            productId:product.id,productName:product.name,brand:product.brand,
+            productType:product.productType,platform:product.platform,
+            priceSnapshot:Number(product.price)||0,time:now,
+            message:"Manually recorded in Deal Dhamaka Agent V2",
+            status:"Manually marked as shared",ordered,
+            orderedAt:ordered?new Date(now).toISOString():""
+          });
+          created++;
+        });
+      });
+      if (!created) return alert("No records were created. Please check your selections.");
       save();
-      alert(ordered ? "Manual share and order recorded." : "Manual share recorded.");
+      alert(`${created} manual share record(s) saved${ordered ? " and marked ordered/received" : ""}.`);
+      $("manualShareOrdered").checked = false;
+      $("manualContactSearch").value = ""; $("manualProductSearch").value = "";
       renderTracking(); renderHistory(); renderSendLists();
     };
+    refreshManualCounts();
   }
   // Reports use current product metadata. Deleted products are excluded from
   // live tracking and inventory reports; historical entries remain in History.
