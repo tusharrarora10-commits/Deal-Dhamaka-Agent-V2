@@ -26,7 +26,21 @@ function normalizeMatchText(value) {
 function normalizeMatchPhone(value) {
   return String(value ?? "").replace(/\D/g, "").replace(/^0+/, "");
 }
+function isReshareAllowed(contactId, productId) {
+  const events = (state.activity || []).filter(a =>
+    a && a.type === "deal_dhamaka_reshare_override" &&
+    String(a.contactId) === String(contactId) &&
+    String(a.productId) === String(productId)
+  ).sort((a,b) => Number(a.time || 0) - Number(b.time || 0));
+  return events.length ? events[events.length - 1].enabled === true : false;
+}
+function setReshareAllowed(contactId, productId, enabled) {
+  state.activity.push({id:uid(),type:"deal_dhamaka_reshare_override",
+    contactId:String(contactId),productId:String(productId),enabled:!!enabled,time:Date.now()});
+  save();
+}
 function hasSharedPair(contactId, productId) {
+  if (isReshareAllowed(contactId, productId)) return false;
   const contact = state.contacts.find(c => String(c.id) === String(contactId));
   const product = state.products.find(p => String(p.id) === String(productId));
   if (!contact || !product) return false;
@@ -1109,6 +1123,38 @@ function renderSendLists() {
       </label>
     `).join("") || '<div class="report-empty">No eligible contacts found.</div>';
 
+  let nonEligibleBox = $("sendNonEligible");
+  if (!nonEligibleBox) {
+    nonEligibleBox = document.createElement("section");
+    nonEligibleBox.id = "sendNonEligible";
+    nonEligibleBox.className = "card";
+    $("sendContacts").insertAdjacentElement("afterend", nonEligibleBox);
+  }
+  const alreadySharedContacts = state.contacts.filter(c =>
+    relevantProductIds.length &&
+    relevantProductIds.every(pid => hasSharedPair(c.id, pid)) &&
+    (c.name + " " + c.phone).toLowerCase().includes(cq)
+  );
+  nonEligibleBox.innerHTML = `
+    <h3>Previously shared / Non-eligible contacts (${alreadySharedContacts.length})</h3>
+    <p class="hint">Tick a contact to allow sharing the selected product(s) again. A new share is recorded separately and counts in all reports.</p>
+    ${alreadySharedContacts.map(c => `
+      <label class="checkrow">
+        <input type="checkbox" data-reshare-contact="${esc(c.id)}">
+        <span>${esc(c.name)}<small>${esc(c.phone)} · Already shared</small></span>
+      </label>
+    `).join("") || '<div class="report-empty">No previously shared contacts for this selection.</div>'}
+  `;
+  nonEligibleBox.querySelectorAll("[data-reshare-contact]").forEach(input => {
+    input.onchange = () => {
+      const contactId = String(input.dataset.reshareContact);
+      relevantProductIds.forEach(productId => setReshareAllowed(contactId, productId, input.checked));
+      if (input.checked) selectedContacts.add(contactId);
+      else selectedContacts.delete(contactId);
+      rebuildBatchFromSelections();
+    };
+  });
+
   document.querySelectorAll("#sendContacts [data-contact]").forEach(input => {
     input.onchange = () => {
       const id = String(input.dataset.contact);
@@ -1329,6 +1375,8 @@ $("openNext").onclick = () => {
     ordered: false,
     orderedAt: ""
   });
+
+  if (isReshareAllowed(c.id, p.id)) setReshareAllowed(c.id, p.id, false);
 
   save();
 
@@ -1638,6 +1686,50 @@ const trackingFilterSearch = {
 };
 
 function renderTracking() {
+  const trackingPage = $("tracking");
+  if (trackingPage && !$("manualSharePanel")) {
+    const panel = document.createElement("section");
+    panel.id = "manualSharePanel";
+    panel.className = "card";
+    panel.innerHTML = `
+      <h3>Manual Share / Order Entry</h3>
+      <p class="hint">Record a product shared outside the app, or mark an order received. This updates the same reports as normal shares.</p>
+      <label>Contact<select id="manualShareContact"><option value="">Select contact</option></select></label>
+      <label>Product<select id="manualShareProduct"><option value="">Select product</option></select></label>
+      <label class="checkrow"><input type="checkbox" id="manualShareOrdered"><span>Already ordered / received</span></label>
+      <button type="button" class="primary big" id="manualShareSave">Save manual record</button>
+    `;
+    trackingPage.insertBefore(panel, trackingPage.firstChild);
+  }
+  const mc = $("manualShareContact"), mp = $("manualShareProduct");
+  if (mc && mp) {
+    const oldC = mc.value, oldP = mp.value;
+    mc.innerHTML = '<option value="">Select contact</option>' +
+      state.contacts.map(c => `<option value="${esc(c.id)}">${esc(c.name)} · ${esc(c.phone)}</option>`).join("");
+    mp.innerHTML = '<option value="">Select product</option>' +
+      state.products.map(p => `<option value="${esc(p.id)}">${esc(p.brand || p.name)} · ${esc(p.name)}</option>`).join("");
+    if (state.contacts.some(c => String(c.id) === oldC)) mc.value = oldC;
+    if (state.products.some(p => String(p.id) === oldP)) mp.value = oldP;
+    $("manualShareSave").onclick = () => {
+      const contact = state.contacts.find(c => String(c.id) === mc.value);
+      const product = state.products.find(p => String(p.id) === mp.value);
+      if (!contact || !product) return alert("Select both a contact and a product.");
+      const ordered = $("manualShareOrdered").checked, now = Date.now();
+      state.shares.push({
+        id:uid(),contactId:contact.id,contactName:contact.name,
+        phone:String(contact.phone || "").replace(/\\D/g,""),
+        productId:product.id,productName:product.name,brand:product.brand,
+        productType:product.productType,platform:product.platform,
+        priceSnapshot:Number(product.price)||0,time:now,
+        message:"Manually recorded in Deal Dhamaka Agent V2",
+        status:"Manually marked as shared",ordered,
+        orderedAt:ordered?new Date(now).toISOString():""
+      });
+      save();
+      alert(ordered ? "Manual share and order recorded." : "Manual share recorded.");
+      renderTracking(); renderHistory(); renderSendLists();
+    };
+  }
   // Reports use current product metadata. Deleted products are excluded from
   // live tracking and inventory reports; historical entries remain in History.
   const reportShares = state.shares.map(record => {
