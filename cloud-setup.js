@@ -156,8 +156,58 @@ function startSync(){if(!client||!workspaceId||!user||channel)return;syncing=tru
 async function loadCloud(){if(busy||!client||!user||!workspaceId)return;setBusy(true);try{const c=await counts();if(total(c)===0){status('Cloud is empty. Use migration only after confirming the latest backup.','info');return;}if(!confirm('Load shared cloud records into this browser? Existing local records with matching IDs will be refreshed; local-only records are preserved.'))return;await pullAll();startSync();status('Cloud data loaded. Real-time sync subscription started.','success');}catch(e){status('Cloud load failed: '+errorText(e),'error');}finally{setBusy(false);}}
 async function signIn(e){e.preventDefault();if(busy)return;setBusy(true);try{await ensure();const {data,error}=await client.auth.signInWithPassword({email:$('ddCloudEmail').value.trim(),password:$('ddCloudPassword').value});if(error)throw error;user=data.user;await findWorkspace();$('ddCloudIdentity').textContent='Signed in as '+user.email+' · workspace verified';$('ddCloudLoginForm').hidden=true;$('ddCloudActions').hidden=false;await inspect();}catch(e2){status('Sign-in/setup failed: '+errorText(e2),'error');}finally{setBusy(false);}}
 async function signOut(){if(!client)return;setBusy(true);try{if(channel){await client.removeChannel(channel);channel=null;}syncing=false;await client.auth.signOut();user=null;workspaceId=null;$('ddCloudLoginForm').hidden=false;$('ddCloudActions').hidden=true;$('ddCloudIdentity').textContent='Not signed in';status('Signed out. Local app data remains on this device.','info');}catch(e){status(errorText(e),'error');}finally{setBusy(false);}}
+async function restoreSession(){
+ // Restore authentication independently from cloud data loading. A cloud/RLS/network
+ // error must never make the UI pretend the user is signed out.
+ try {
+  await ensure();
+  const {data,error}=await client.auth.getSession();
+  if(error) throw error;
+  const session=data&&data.session;
+  if(!session||!session.user){
+   user=null; workspaceId=null;
+   if($('ddCloudIdentity')) $('ddCloudIdentity').textContent='Not signed in';
+   if($('ddCloudLoginForm')) $('ddCloudLoginForm').hidden=false;
+   if($('ddCloudActions')) $('ddCloudActions').hidden=true;
+   status('No saved Supabase session found in this browser. Sign in once on this same browser/app.','info');
+   return;
+  }
+  user=session.user;
+  if($('ddCloudIdentity')) $('ddCloudIdentity').textContent='Signed in as '+(user.email||'account')+' · session restored';
+  if($('ddCloudLoginForm')) $('ddCloudLoginForm').hidden=true;
+  if($('ddCloudActions')) $('ddCloudActions').hidden=false;
+  status('Saved Supabase session restored. Verifying workspace…','info');
+ } catch(e) {
+  user=null; workspaceId=null;
+  if($('ddCloudLoginForm')) $('ddCloudLoginForm').hidden=false;
+  if($('ddCloudActions')) $('ddCloudActions').hidden=true;
+  status('Could not restore saved Supabase session: '+errorText(e)+'. Sign in again.','error');
+  return;
+ }
+ // A workspace or sync failure is not an authentication failure. Keep the session
+ // and signed-in UI intact so the user is not prompted to log in repeatedly.
+ try {
+  await findWorkspace();
+  if($('ddCloudIdentity')) $('ddCloudIdentity').textContent='Signed in as '+(user.email||'account')+' · workspace verified';
+  await inspect();
+  const c=await counts();
+  if(total(c)>0){
+   await pullAll();
+   startSync();
+   status('Session restored. Shared cloud loaded; real-time sync started.','success');
+  } else {
+   status('Session restored and workspace verified. Cloud is empty; choose Resume / reconcile only if you intend to import local data.','info');
+  }
+ } catch(e) {
+  if($('ddCloudIdentity')) $('ddCloudIdentity').textContent='Signed in as '+(user.email||'account')+' · session retained';
+  if($('ddCloudLoginForm')) $('ddCloudLoginForm').hidden=true;
+  if($('ddCloudActions')) $('ddCloudActions').hidden=false;
+  status('You are still signed in, but cloud startup failed: '+errorText(e)+'. Retry Load shared cloud data / start sync; no local data was deleted.','error');
+ }
+}
+
 function mount(){const settings=$('settings');if(!settings||$('ddCloudCard'))return;const card=document.createElement('div');card.className='card';card.id='ddCloudCard';card.innerHTML='<h3>Shared Cloud</h3><p class="hint">Sign in to the shared workspace. Keep a backup before migration. Local-first storage is preserved.</p><p id="ddCloudIdentity">Not signed in</p><div id="ddCloudStatus" role="status" aria-live="polite">Supabase is configured. Sign in to continue.</div><form id="ddCloudLoginForm"><label>Email<input id="ddCloudEmail" type="email" autocomplete="username" required></label><label>Password<input id="ddCloudPassword" type="password" autocomplete="current-password" required></label><button class="primary full" id="ddCloudSignIn" type="submit">Sign in to Supabase</button></form><div id="ddCloudActions" hidden><button class="secondary full" id="ddCloudBackup" type="button">Download local backup</button><button class="primary full" id="ddCloudImport" type="button">Resume / reconcile local data</button><button class="secondary full" id="ddCloudLoad" type="button">Load shared cloud data / start sync</button><button class="secondary full" id="ddCloudRefresh" type="button">Check cloud record counts</button><button class="secondary full" id="ddCloudDiagnose" type="button">Run read-only connection diagnostics</button><button class="secondary full" id="ddCloudWriteTest" type="button">Test cloud write (temporary row)</button><button class="secondary full" id="ddCloudSignOut" type="button">Sign out</button></div><p class="hint">Resume/reconcile inserts only missing IDs and skips existing cloud rows. It does not delete local or cloud data. Realtime depends on Supabase table publication and valid RLS policies. Review counts after reconciliation.</p>';settings.appendChild(card);$('ddCloudLoginForm').addEventListener('submit',signIn);$('ddCloudSignOut').addEventListener('click',signOut);$('ddCloudBackup').addEventListener('click',()=>backup().then(()=>status('Backup download started.','success')).catch(e=>status(errorText(e),'error')));$('ddCloudImport').addEventListener('click',migrate);$('ddCloudLoad').addEventListener('click',loadCloud);$('ddCloudRefresh').addEventListener('click',inspect);$('ddCloudDiagnose').addEventListener('click',diagnose);$('ddCloudWriteTest').addEventListener('click',testCloudWrite);}
 // Observe legacy writes so existing app scripts remain compatible. Sync writes only changed records; deletes are intentionally not propagated automatically.
 const originalSet=Storage.prototype.setItem;Storage.prototype.setItem=function(k,v){originalSet.call(this,k,v);if(!syncing&&(k===KEY||k===TEMPLATE_KEY))schedulePush();};
-window.addEventListener('DOMContentLoaded',mount);if(document.readyState!=='loading')mount();
+window.addEventListener('DOMContentLoaded',()=>{mount();restoreSession();});if(document.readyState!=='loading'){mount();restoreSession();}
 })();
