@@ -2479,3 +2479,19 @@ if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
     navigator.serviceWorker.register("./sw.js").catch(() => {})
   );
 }
+
+
+/* Refresh the in-memory app state and the currently visible page after cloud pulls.
+   Cloud writes update localStorage in this tab; the browser's native storage event
+   does not fire in the same tab, so this explicit event keeps screens current. */
+window.addEventListener("deal-dhamaka-data-updated", () => {
+  const activePage = document.querySelector(".page.active")?.id || "dashboard";
+  load();
+  if (activePage === "contacts") renderContacts();
+  else if (activePage === "products") renderProducts();
+  else if (activePage === "send") renderSendLists();
+  else if (activePage === "history") renderHistory();
+  else if (activePage === "tracking") renderTracking();
+  else if (activePage === "refunds" && typeof window.renderRefunds === "function") window.renderRefunds();
+  updateStats();
+});

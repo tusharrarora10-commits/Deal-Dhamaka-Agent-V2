@@ -148,13 +148,40 @@ async function migrate(){
  }catch(e){const msg=errorText(e);status('Reconciliation paused safely: '+msg+'. Existing cloud rows and local data were preserved. You can run Resume / reconcile again.','error');alert('Reconciliation paused safely:\n\n'+msg+'\n\nExisting cloud rows and local data were preserved. You can run Resume / reconcile again.');}finally{setBusy(false);}
 }
 async function inspect(){if(busy||!client||!user||!workspaceId)return;setBusy(true);try{const c=await counts();status('Connected. Cloud counts — '+Object.entries(c).map(([k,v])=>k+': '+v).join(' · ')+(syncing?' · Real-time sync listening':' · Real-time sync not started; import or load cloud first.'),'success');}catch(e){status('Cloud check failed: '+errorText(e),'error');}finally{setBusy(false);}}
-function mergeCloudRows(k,rows){const current=local(), arr=current[k]||[], byId=new Map(arr.map((x,i)=>[String(x?.id??'__missing_'+i),x]));for(const row of rows||[]){const p=row.payload;if(!p||typeof p!=='object')continue;const id=String(p.id??row.id);byId.set(id,p);}current[k]=Array.from(byId.values());syncing=true;try{localStorage.setItem(KEY,JSON.stringify(current));}finally{syncing=false;}baseline=JSON.parse(JSON.stringify(current));window.dispatchEvent(new CustomEvent('deal-dhamaka-data-updated'));if(typeof window.renderAll==='function')try{window.renderAll();}catch(_){} }
-async function pullAll(){for(const [k,t] of Object.entries(TABLES)){const {data,error}=await client.from(t).select('id,payload,updated_at').eq('workspace_id',workspaceId);if(error)throw error;if(k==='templates'){const wa=(data||[]).filter(r=>r.payload&&r.payload._source===TEMPLATE_KEY).map(r=>{const x={...r.payload};delete x._source;return x;});if(wa.length){syncing=true;try{localStorage.setItem(TEMPLATE_KEY,JSON.stringify(wa));}finally{syncing=false;}}const appRows=(data||[]).filter(r=>!(r.payload&&r.payload._source===TEMPLATE_KEY));mergeCloudRows(k,appRows);}else mergeCloudRows(k,data||[]);} }
+function mergeCloudRows(k,rows){
+ const current=local(),arr=current[k]||[],byId=new Map(arr.map((x,i)=>[String(x?.id??'__missing_'+i),x]));
+ for(const row of rows||[]){const payload=row.payload;if(!payload||typeof payload!=='object')continue;const id=String(payload.id??row.id);byId.set(id,payload);}
+ current[k]=Array.from(byId.values());
+ syncing=true;try{localStorage.setItem(KEY,JSON.stringify(current));}finally{syncing=false;}
+}
+async function pullAll(){
+ const cloudBaseline={contacts:[],products:[],shares:[],activity:[],templates:[]};
+ for(const [k,t] of Object.entries(TABLES)){
+  const {data,error}=await withTimeout(client.from(t).select('id,payload,updated_at').eq('workspace_id',workspaceId),'Load '+t);
+  if(error)throw error;
+  if(k==='templates'){
+   const wa=(data||[]).filter(r=>r.payload&&r.payload._source===TEMPLATE_KEY);
+   const appRows=(data||[]).filter(r=>!(r.payload&&r.payload._source===TEMPLATE_KEY));
+   const cleanWa=wa.map(r=>{const x={...r.payload};delete x._source;return x;});
+   if(wa.length){syncing=true;try{localStorage.setItem(TEMPLATE_KEY,JSON.stringify(cleanWa));}finally{syncing=false;}}
+   mergeCloudRows(k,appRows);
+   cloudBaseline[k]=appRows.map(r=>r.payload).filter(x=>x&&typeof x==='object');
+  } else {
+   mergeCloudRows(k,data||[]);
+   cloudBaseline[k]=(data||[]).map(r=>r.payload).filter(x=>x&&typeof x==='object');
+  }
+ }
+ // Keep a cloud-only baseline so any local-only records are detected and uploaded
+ // after sync starts, instead of being silently treated as already synchronized.
+ baseline=cloudBaseline;
+ window.dispatchEvent(new CustomEvent('deal-dhamaka-data-updated'));
+ if(syncing)schedulePush();
+}
 async function pushChanges(){if(!syncing||!client||!workspaceId||!user)return;const now=local();for(const k of Object.keys(TABLES)){const old=new Map((baseline[k]||[]).map((r,i)=>[String(r?.id??'__missing_'+i),JSON.stringify(r)]));for(let i=0;i<now[k].length;i++){const r=now[k][i],id=String(r?.id??'');if(!id)continue;if(old.get(id)!==JSON.stringify(r)){await upsertOne(k,r,i);}}}for(const [i,item] of waTemplates().entries()){const id='whatsapp-template-'+idOf(item,'template',i);const {error}=await client.from(TABLES.templates).upsert({workspace_id:workspaceId,id,payload:{...item,_source:TEMPLATE_KEY},updated_at:new Date().toISOString(),updated_by:user.id},{onConflict:'workspace_id,id'});if(error)throw new Error('WhatsApp template sync failed: '+errorText(error));}baseline=JSON.parse(JSON.stringify(now));}
 let pushTimer=null;function schedulePush(){if(!syncing||busy)return;clearTimeout(pushTimer);pushTimer=setTimeout(()=>pushChanges().catch(e=>status('Sync write failed: '+errorText(e)+'. Local changes remain on this device.','error')),700);}
-function startSync(){if(!client||!workspaceId||!user||channel)return;syncing=true;baseline=JSON.parse(JSON.stringify(local()));channel=client.channel('deal-dhamaka-workspace-'+workspaceId);for(const t of Object.values(TABLES))channel.on('postgres_changes',{event:'*',schema:'public',table:t,filter:'workspace_id=eq.'+workspaceId},async()=>{try{await pullAll();}catch(e){status('Realtime refresh failed: '+errorText(e),'error');}});channel.subscribe(s=>{if(s==='SUBSCRIBED')status('Real-time sync is listening for shared changes.','success');else if(s==='CHANNEL_ERROR'||s==='TIMED_OUT')status('Realtime subscription status: '+s+'. Verify Supabase Realtime is enabled for dd_* tables.','error');});}
-async function loadCloud(){if(busy||!client||!user||!workspaceId)return;setBusy(true);try{const c=await counts();if(total(c)===0){status('Cloud is empty. Use migration only after confirming the latest backup.','info');return;}if(!confirm('Load shared cloud records into this browser? Existing local records with matching IDs will be refreshed; local-only records are preserved.'))return;await pullAll();startSync();status('Cloud data loaded. Real-time sync subscription started.','success');}catch(e){status('Cloud load failed: '+errorText(e),'error');}finally{setBusy(false);}}
-async function signIn(e){e.preventDefault();if(busy)return;setBusy(true);try{await ensure();const {data,error}=await client.auth.signInWithPassword({email:$('ddCloudEmail').value.trim(),password:$('ddCloudPassword').value});if(error)throw error;user=data.user;await findWorkspace();$('ddCloudIdentity').textContent='Signed in as '+user.email+' · workspace verified';$('ddCloudLoginForm').hidden=true;$('ddCloudActions').hidden=false;await inspect();}catch(e2){status('Sign-in/setup failed: '+errorText(e2),'error');}finally{setBusy(false);}}
+function startSync(){if(!client||!workspaceId||!user||channel)return;syncing=true;channel=client.channel('deal-dhamaka-workspace-'+workspaceId);for(const t of Object.values(TABLES))channel.on('postgres_changes',{event:'*',schema:'public',table:t,filter:'workspace_id=eq.'+workspaceId},async()=>{try{await pullAll();}catch(e){status('Realtime refresh failed: '+errorText(e),'error');}});channel.subscribe(s=>{if(s==='SUBSCRIBED')status('Real-time sync is listening for shared changes.','success');else if(s==='CHANNEL_ERROR'||s==='TIMED_OUT')status('Realtime subscription status: '+s+'. Verify Supabase Realtime is enabled for dd_* tables.','error');});}
+async function loadCloud(){if(busy||!client||!user||!workspaceId)return;setBusy(true);try{const c=await counts();if(total(c)===0){status('Cloud is empty. Use migration only after confirming the latest backup.','info');return;}if(!confirm('Load shared cloud records into this browser? Existing local records with matching IDs will be refreshed; local-only records are preserved.'))return;await pullAll();startSync();schedulePush();status('Cloud data loaded. Local-only records are being uploaded; real-time sync subscription started.','success');}catch(e){status('Cloud load failed: '+errorText(e),'error');}finally{setBusy(false);}}
+async function signIn(e){e.preventDefault();if(busy)return;setBusy(true);try{await ensure();const {data,error}=await client.auth.signInWithPassword({email:$('ddCloudEmail').value.trim(),password:$('ddCloudPassword').value});if(error)throw error;user=data.user;await findWorkspace();$('ddCloudIdentity').textContent='Signed in as '+user.email+' · workspace verified';$('ddCloudLoginForm').hidden=true;$('ddCloudActions').hidden=false;await pullAll();startSync();status('Signed in. Local records reconciled with shared cloud; real-time sync started.','success');}catch(e2){status('Sign-in/setup failed: '+errorText(e2),'error');}finally{setBusy(false);if(user&&workspaceId)schedulePush();}}
 async function signOut(){if(!client)return;setBusy(true);try{if(channel){await client.removeChannel(channel);channel=null;}syncing=false;await client.auth.signOut();user=null;workspaceId=null;$('ddCloudLoginForm').hidden=false;$('ddCloudActions').hidden=true;$('ddCloudIdentity').textContent='Not signed in';status('Signed out. Local app data remains on this device.','info');}catch(e){status(errorText(e),'error');}finally{setBusy(false);}}
 async function restoreSession(){
  // Restore authentication independently from cloud data loading. A cloud/RLS/network
@@ -190,14 +217,10 @@ async function restoreSession(){
   await findWorkspace();
   if($('ddCloudIdentity')) $('ddCloudIdentity').textContent='Signed in as '+(user.email||'account')+' · workspace verified';
   await inspect();
-  const c=await counts();
-  if(total(c)>0){
-   await pullAll();
-   startSync();
-   status('Session restored. Shared cloud loaded; real-time sync started.','success');
-  } else {
-   status('Session restored and workspace verified. Cloud is empty; choose Resume / reconcile only if you intend to import local data.','info');
-  }
+  await pullAll();
+  startSync();
+  schedulePush();
+  status('Session restored. Local records reconciled with shared cloud; real-time sync started.','success');
  } catch(e) {
   if($('ddCloudIdentity')) $('ddCloudIdentity').textContent='Signed in as '+(user.email||'account')+' · session retained';
   if($('ddCloudLoginForm')) $('ddCloudLoginForm').hidden=true;
@@ -208,6 +231,6 @@ async function restoreSession(){
 
 function mount(){const settings=$('settings');if(!settings||$('ddCloudCard'))return;const card=document.createElement('div');card.className='card';card.id='ddCloudCard';card.innerHTML='<h3>Shared Cloud</h3><p class="hint">Sign in to the shared workspace. Keep a backup before migration. Local-first storage is preserved.</p><p id="ddCloudIdentity">Not signed in</p><div id="ddCloudStatus" role="status" aria-live="polite">Supabase is configured. Sign in to continue.</div><form id="ddCloudLoginForm"><label>Email<input id="ddCloudEmail" type="email" autocomplete="username" required></label><label>Password<input id="ddCloudPassword" type="password" autocomplete="current-password" required></label><button class="primary full" id="ddCloudSignIn" type="submit">Sign in to Supabase</button></form><div id="ddCloudActions" hidden><button class="secondary full" id="ddCloudBackup" type="button">Download local backup</button><button class="primary full" id="ddCloudImport" type="button">Resume / reconcile local data</button><button class="secondary full" id="ddCloudLoad" type="button">Load shared cloud data / start sync</button><button class="secondary full" id="ddCloudRefresh" type="button">Check cloud record counts</button><button class="secondary full" id="ddCloudDiagnose" type="button">Run read-only connection diagnostics</button><button class="secondary full" id="ddCloudWriteTest" type="button">Test cloud write (temporary row)</button><button class="secondary full" id="ddCloudSignOut" type="button">Sign out</button></div><p class="hint">Resume/reconcile inserts only missing IDs and skips existing cloud rows. It does not delete local or cloud data. Realtime depends on Supabase table publication and valid RLS policies. Review counts after reconciliation.</p>';settings.appendChild(card);$('ddCloudLoginForm').addEventListener('submit',signIn);$('ddCloudSignOut').addEventListener('click',signOut);$('ddCloudBackup').addEventListener('click',()=>backup().then(()=>status('Backup download started.','success')).catch(e=>status(errorText(e),'error')));$('ddCloudImport').addEventListener('click',migrate);$('ddCloudLoad').addEventListener('click',loadCloud);$('ddCloudRefresh').addEventListener('click',inspect);$('ddCloudDiagnose').addEventListener('click',diagnose);$('ddCloudWriteTest').addEventListener('click',testCloudWrite);}
 // Observe legacy writes so existing app scripts remain compatible. Sync writes only changed records; deletes are intentionally not propagated automatically.
-const originalSet=Storage.prototype.setItem;Storage.prototype.setItem=function(k,v){originalSet.call(this,k,v);if(!syncing&&(k===KEY||k===TEMPLATE_KEY))schedulePush();};
+const originalSet=Storage.prototype.setItem;Storage.prototype.setItem=function(k,v){originalSet.call(this,k,v);if(syncing&&(k===KEY||k===TEMPLATE_KEY))schedulePush();};
 window.addEventListener('DOMContentLoaded',()=>{mount();restoreSession();});if(document.readyState!=='loading'){mount();restoreSession();}
 })();

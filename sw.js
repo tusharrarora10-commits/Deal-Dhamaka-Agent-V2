@@ -1,7 +1,7 @@
 /* Deal Dhamaka Agent V2 — conservative offline cache.
    Dashboard visuals only; preserve app storage and all existing workflows.
    Do not delete unrelated caches on this origin during activation. */
-const CACHE = 'deal-dhamaka-v17-supabase-setup';
+const CACHE = 'deal-dhamaka-v18-auto-cloud-sync';
 
 const ASSETS = [
   './',

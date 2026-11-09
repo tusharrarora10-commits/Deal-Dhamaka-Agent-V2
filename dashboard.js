@@ -269,5 +269,6 @@
   document.querySelectorAll('[data-page="dashboard"]').forEach(btn=>btn.addEventListener("click",render));
   document.addEventListener("visibilitychange",()=>{if(!document.hidden)render();});
   window.addEventListener("storage",e=>{if(e.key==="dealDhamakaAgentV2")render();});
+  window.addEventListener("deal-dhamaka-data-updated",render);
   render();
 })();
