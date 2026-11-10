@@ -574,3 +574,8 @@ input[type=date],input[type=datetime-local],input[type=time]{
 #manualSharePanel .manual-multi-option input{width:20px;height:20px;flex:0 0 auto}
 #manualSharePanel input[type="search"]{width:100%;box-sizing:border-box}
 #manualSharePanel #manualShareSave:disabled{opacity:.5;cursor:not-allowed}
+
+.payment-row{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}
+.payment-actions{display:flex;gap:7px;align-items:center}
+.payment-actions button{min-height:38px}
+#paymentQueue .item{margin:8px 0}

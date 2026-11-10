@@ -201,6 +201,8 @@ function showPage(name) {
   if (name === "send") renderSendLists();
   if (name === "history") renderHistory();
   if (name === "tracking") renderTracking();
+  if (name === "payments" && typeof window.renderPayments === "function") window.renderPayments();
+  if (name === "payments" && typeof window.renderPayments === "function") window.renderPayments();
   if (name === "refunds" && typeof window.renderRefunds === "function") window.renderRefunds();
 
   updateStats();
@@ -270,6 +272,11 @@ function addContact(x) {
         >
       </label>
 
+      <label>UPI ID
+        <input name="upiId" inputmode="email" placeholder="name@upi" value="${esc(x.upiId || "")}">
+        <small class="muted">Used to prefill payment requests from the Payments tab. Verify the UPI ID before paying.</small>
+      </label>
+
       <label>Amazon Profile Link
         <div class="amazon-profile-input-row">
           <input
@@ -298,7 +305,8 @@ function addContact(x) {
         name: f.get("name").trim(),
         phone: f.get("phone").replace(/\D/g, ""),
         category: f.get("category").trim() || "General",
-        amazonProfileUrl: String(f.get("amazonProfileUrl") || "").trim()
+        amazonProfileUrl: String(f.get("amazonProfileUrl") || "").trim(),
+        upiId: String(f.get("upiId") || "").trim()
       };
 
       if (obj.amazonProfileUrl) {
@@ -2494,4 +2502,5 @@ window.addEventListener("deal-dhamaka-data-updated", () => {
   else if (activePage === "tracking") renderTracking();
   else if (activePage === "refunds" && typeof window.renderRefunds === "function") window.renderRefunds();
   updateStats();
+  if (typeof window.renderPayments === "function") window.renderPayments();
 });

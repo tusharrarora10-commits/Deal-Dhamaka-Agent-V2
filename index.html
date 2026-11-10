@@ -231,6 +231,38 @@
   <div class="card"><h3 id="refundContactHeading">Pending refund contacts</h3><input id="refundContactSearch" class="search" placeholder="Search recipient, number or product"><div class="selection-head"><b>Select contacts</b><div><button class="mini" id="refundSelectAllContacts" type="button">Select all</button><button class="mini" id="refundClearContacts" type="button">Clear</button></div></div><div id="refundContactList"></div><button id="markContactsRefunded" class="primary full" type="button">Mark selected pending records as refunded</button><p class="hint">Select one or more pending recipient-product records to mark them refunded. Refund amount defaults to the saved unit price and can be edited.</p></div>
 </section>
 
+
+<section id="payments" class="page">
+  <div class="sectionhead">
+    <div><h2>Payments</h2><p>Import pending payments from Excel and pay using saved contact UPI IDs</p></div>
+  </div>
+  <div class="card">
+    <h3>1. Import Excel payment sheet</h3>
+    <p class="hint">Expected columns: Contact Name, Brand Name, Pending Amount. Optional: Remarks. WhatsApp number and UPI ID are taken from the matched saved contact. The app matches contact names against your saved contacts and retrieves their UPI ID.</p>
+    <label class="filelabel">Choose Excel / CSV file
+      <input id="paymentExcelFile" type="file" accept=".xlsx,.xls,.csv">
+    </label>
+    <div id="paymentImportStatus" class="hint" aria-live="polite"></div>
+    <button class="primary full" id="paymentImportBtn" type="button">Import payment rows</button>
+    <button class="secondary full" id="paymentExportBtn" type="button">Export payment register (CSV)</button>
+  </div>
+  <div class="card">
+    <h3>2. Payment summary</h3>
+    <div class="dashboard-overview-grid">
+      <div class="dash-kpi"><div class="dash-kpi-head">Pending amount</div><strong id="paymentPendingTotal" class="dash-kpi-value">₹0</strong></div>
+      <div class="dash-kpi"><div class="dash-kpi-head">Pending entries</div><strong id="paymentPendingCount" class="dash-kpi-value">0</strong></div>
+      <div class="dash-kpi"><div class="dash-kpi-head">Paid amount</div><strong id="paymentPaidTotal" class="dash-kpi-value">₹0</strong></div>
+      <div class="dash-kpi"><div class="dash-kpi-head">Unmatched entries</div><strong id="paymentUnmatchedCount" class="dash-kpi-value">0</strong></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="sectionhead"><div><h3>3. Payment queue</h3><p class="hint">Verify the UPI ID and amount before opening your UPI app.</p></div>
+      <select id="paymentFilter" aria-label="Filter payments"><option value="all">All</option><option value="pending">Pending</option><option value="paid">Paid</option><option value="unmatched">Unmatched</option></select>
+    </div>
+    <input id="paymentSearch" type="search" placeholder="Search contact or brand" aria-label="Search payment queue">
+    <div id="paymentQueue"></div>
+  </div>
+</section>
 <section id="settings" class="page">
   <div class="sectionhead">
     <div><h2>Data &amp; Settings</h2><p>Backup your local data</p></div>
@@ -258,6 +290,7 @@
   <button data-page="history">◷<span>History</span></button>
   <button data-page="settings">⚙<span>Settings</span></button>
   <button data-page="tracking">📊<span>Tracking</span></button>
+  <button data-page="payments">₹<span>Payments</span></button>
   <button data-page="refunds">↩<span>Refunds</span></button>
 </nav>
 
@@ -272,6 +305,7 @@
 </div>
 
 <!-- Keep app.js first: it owns the existing dealDhamakaAgentV2 local-storage data. -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="app.js"></script>
 <script src="whatsapp-enhancements.js"></script>
 <!-- One consolidated executive dashboard. Detailed filters and tables remain in Tracking. -->
@@ -287,5 +321,6 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-config.js"></script>
 <script src="cloud-setup.js"></script>
+<script src="payments.js"></script>
 </body>
 </html>
