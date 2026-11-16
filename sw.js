@@ -1,7 +1,7 @@
 /* Deal Dhamaka Agent V2 — conservative offline cache.
    Dashboard visuals only; preserve app storage and all existing workflows.
    Do not delete unrelated caches on this origin during activation. */
-const CACHE = 'deal-dhamaka-v20-cred-receipt';
+const CACHE = 'deal-dhamaka-v21-bulk-paid-receipt-share-20261111';
 
 const ASSETS = [
   './',

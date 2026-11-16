@@ -560,7 +560,10 @@ function renderContacts() {
       String(share.contactId || "") === String(contact.id) ||
       (!share.contactId && phone && String(share.phone || "").replace(/\D/g, "") === phone)
     );
-    return { shared: rows.length, ordered: rows.filter(row => Boolean(row.ordered)).length };
+    const paymentRows=(JSON.parse(localStorage.getItem("dealDhamakaAgentV2")||"{}").activity||[]).filter(r=>r?.type==="dd_payment"&&r.payment&&String(r.payment.contactId)===String(contact.id)).map(r=>r.payment);
+    const paidRows=paymentRows.filter(r=>r.status==="Paid");
+    const paidAmount=paidRows.reduce((sum,r)=>sum+Math.max(0,Number(r.amount)||0),0);
+    return { shared: rows.length, ordered: rows.filter(row => Boolean(row.ordered)).length, paidCount:paidRows.length, paidAmount };
   };
 
   const a = state.contacts
@@ -592,6 +595,8 @@ function renderContacts() {
         <div class="contact-product-stats" aria-label="${stats.shared} products shared, ${stats.ordered} ordered">
           <span class="contact-shared-count"><strong>${stats.shared}</strong><small>Shared</small></span>
           <span class="contact-ordered-count"><strong>${stats.ordered}</strong><small>Ordered</small></span>
+          <span class="contact-paid-count"><strong>${stats.paidCount}</strong><small>Paid lines</small></span>
+          <span class="contact-paid-total"><strong>₹${stats.paidAmount.toLocaleString("en-IN",{minimumFractionDigits:2,maximumFractionDigits:2})}</strong><small>Paid amount</small></span>
         </div>
       </div>
     `).join("")
@@ -634,6 +639,11 @@ function openContactTimeline(contactId) {
     .filter(s => String(s.contactId) === String(contact.id) ||
       (!s.contactId && s.phone && String(s.phone).replace(/\D/g, "") === String(contact.phone || "").replace(/\D/g, "")))
     .sort((a,b) => Number(b.time || 0) - Number(a.time || 0));
+  const paymentActivity=(()=>{try{return (JSON.parse(localStorage.getItem("dealDhamakaAgentV2")||"{}").activity||[]).filter(r=>r?.type==="dd_payment"&&r.payment&&String(r.payment.contactId)===String(contact.id)).map(r=>r.payment);}catch(_){return [];}})();
+  const paidRows=paymentActivity.filter(r=>r.status==="Paid").sort((x,y)=>new Date(y.paidAt||0)-new Date(x.paidAt||0));
+  const paidGroups=new Map();
+  paidRows.forEach(r=>{const dt=new Date(r.paidAt||r.importedAt||Date.now()),legacy=dt.toISOString().slice(0,16),batch=String(r.paymentBatchId||("legacy-"+contact.id+"-"+legacy));if(!paidGroups.has(batch))paidGroups.set(batch,{batch,items:[],paidAt:r.paidAt||r.importedAt||""});paidGroups.get(batch).items.push(r);});
+  const paidReceiptCards=[...paidGroups.values()].sort((x,y)=>new Date(y.paidAt)-new Date(x.paidAt));
   const orderedCount = rows.filter(r => r.ordered).length;
   const pendingCount = rows.length - orderedCount;
   const reviewCount = rows.filter(r => (r.reviewStatus || "pending") !== "done").length;
@@ -668,11 +678,13 @@ function openContactTimeline(contactId) {
         </tr>`;
       }).join("") : '<tr><td colspan="5" class="ct-empty">No saved share history for this recipient yet.</td></tr>'}
       </tbody></table></div>
+      <section class="ct-paid-history"><h3>Payment receipts</h3>${paidReceiptCards.length?paidReceiptCards.map((g,i)=>{const gross=g.items.reduce((s,r)=>s+Number(r.amount||0),0),charges=g.items.reduce((s,r)=>{const n=Number(r.amount)||0;return s+(Number.isFinite(Number(r.appliedCharge))?Number(r.appliedCharge):(r.chargeEnabled===false?0:(n>=1&&n<=500?5:n>500&&n<=1000?10:n>1000?20:0)));},0),d=new Date(g.paidAt||Date.now()),brands=g.items.map(r=>`${esc(r.brandName||r.productName||"Brand")} ₹${Number(r.amount||0).toLocaleString("en-IN")}`).join(" · ");return `<div class="ct-paid-receipt"><b>${i===0?"Latest paid":"Previous receipt"} · ${d.toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"numeric"})} ${d.toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"})}</b><p>${brands}</p><small>${g.items.length} brand(s) · Total ₹${gross.toLocaleString("en-IN",{minimumFractionDigits:2})} · Charges ₹${charges.toFixed(2)} · Net ₹${(gross-charges).toLocaleString("en-IN",{minimumFractionDigits:2})}</small><button type="button" class="mini ct-share-payment" data-paid-batch="${esc(g.batch)}">Share this receipt</button></div>`;}).join(""):'<p class="ct-empty">No paid receipts for this contact yet.</p>'}</section>
       <footer class="ct-foot">Changes save automatically. “Shared” means the app opened WhatsApp; it does not confirm message delivery.</footer>
     </section>`;
   document.body.appendChild(overlay);
   const close = () => overlay.remove();
   overlay.querySelector(".ct-close").onclick = close;
+  overlay.querySelectorAll(".ct-share-payment").forEach(button=>button.addEventListener("click",()=>{if(typeof window.sharePaymentReceipt==="function")window.sharePaymentReceipt(button.dataset.paidBatch);else alert("Open the Payments tab once, then retry sharing this receipt.");}));
   overlay.addEventListener("click", e => { if (e.target === overlay) close(); });
   const applyFilters = () => {
     const q = overlay.querySelector(".ct-search").value.trim().toLowerCase();
@@ -2473,6 +2485,29 @@ $("installBtn").onclick = async () => {
     $("installBtn").hidden = true;
   }
 };
+
+
+function exportAllContactsExcel(){
+  const KEY="dealDhamakaAgentV2";let store={};
+  try{store=JSON.parse(localStorage.getItem(KEY)||"{}")||{};}catch(e){}
+  const contacts=Array.isArray(store.contacts)?store.contacts:[];
+  if(!contacts.length){alert("No contacts available to export.");return;}
+  const preferred=["name","phone","upiId","category","amazonProfileUrl","amazonProfile"];
+  const keys=[...new Set(contacts.flatMap(c=>Object.keys(c||{})))];
+  const ordered=[...preferred.filter(k=>keys.includes(k)),...keys.filter(k=>!preferred.includes(k)).sort()];
+  const labels={name:"Contact Name",phone:"WhatsApp Number",upiId:"UPI ID",category:"Category",amazonProfileUrl:"Amazon Profile Link",amazonProfile:"Amazon Profile"};
+  const matrix=[[...ordered.map(k=>labels[k]||k)],...contacts.map(c=>ordered.map(k=>{const v=c?.[k];return v==null?"":typeof v==="object"?JSON.stringify(v):v;}))];
+  if(window.XLSX){
+    const wb=XLSX.utils.book_new(),ws=XLSX.utils.aoa_to_sheet(matrix);
+    ws["!cols"]=ordered.map(k=>({wch:Math.min(42,Math.max(16,(labels[k]||k).length+4))}));
+    XLSX.utils.book_append_sheet(wb,ws,"Contacts");XLSX.writeFile(wb,"Deals-by-TA-Contacts.xlsx");
+  }else{
+    const csv=matrix.map(r=>r.map(v=>'"'+String(v??"").replace(/"/g,'""')+'"').join(",")).join("\r\n");
+    const url=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"})),a=document.createElement("a");
+    a.href=url;a.download="Deals-by-TA-Contacts.csv";a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+  }
+}
+document.addEventListener("DOMContentLoaded",()=>{const b=document.getElementById("exportContactsExcel");if(b)b.addEventListener("click",exportAllContactsExcel);});
 
 /* =========================
    INITIALIZATION

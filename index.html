@@ -60,7 +60,7 @@
 <section id="contacts" class="page">
   <div class="sectionhead">
     <div><h2>Contacts</h2><p>Names and WhatsApp numbers</p></div>
-    <button class="primary" id="addContact">＋ Add</button>
+    <div class="contact-actions"><button class="secondary" id="exportContactsExcel" type="button">Export Excel</button><button class="primary" id="addContact">＋ Add</button></div>
   </div>
   <div class="contact-total-card" aria-live="polite"><span class="contact-total-icon">♙</span><div><small>TOTAL CONTACTS</small><strong id="totalContactCount">0</strong></div><span class="contact-total-caption">Saved recipients</span></div>
   <input id="contactSearch" class="search" placeholder="Search name or number">
@@ -72,6 +72,7 @@
     <option value="shared-desc">Products shared (high to low)</option>
     <option value="shared-asc">Products shared (low to high)</option>
   </select>
+  <p class="hint">Export Excel downloads all saved contact fields, including WhatsApp number, UPI ID, Amazon profile link and category.</p>
   <div id="contactsList"></div>
 </section>
 
@@ -234,7 +235,7 @@
 
 <section id="payments" class="page">
   <div class="sectionhead">
-    <div><h2>Payments</h2><p>Import pending payments from Excel and pay using saved contact UPI IDs</p></div>
+    <div><h2>Payments</h2><p>Import pending payments from Excel and pay using saved contact UPI IDs. Campaign support Charges are deducted once per brand/payment row.</p></div>
   </div>
   <div class="card">
     <h3>1. Import Excel payment sheet</h3>
@@ -253,13 +254,23 @@
       <div class="dash-kpi"><div class="dash-kpi-head">Pending entries</div><strong id="paymentPendingCount" class="dash-kpi-value">0</strong></div>
       <div class="dash-kpi"><div class="dash-kpi-head">Paid amount</div><strong id="paymentPaidTotal" class="dash-kpi-value">₹0</strong></div>
       <div class="dash-kpi"><div class="dash-kpi-head">Unmatched entries</div><strong id="paymentUnmatchedCount" class="dash-kpi-value">0</strong></div>
+      <div class="dash-kpi"><div class="dash-kpi-head">Campaign support Charges</div><strong id="paymentCampaignCharges" class="dash-kpi-value">₹0</strong></div>
+      <div class="dash-kpi"><div class="dash-kpi-head">Net payable</div><strong id="paymentNetPayable" class="dash-kpi-value">₹0</strong></div>
     </div>
   </div>
+  <div class="card payment-charge-settings">
+    <h3>Campaign support Charges — optional</h3>
+    <label class="payment-master-choice"><input type="checkbox" id="paymentChargeMaster"><span><b>Apply Campaign support Charges</b><small>Unchecked = pay full product amount. Check to apply charges to all pending brands.</small></span></label>
+    <h4>Brand-wise selection</h4>
+    <p class="hint">Select the brands from your imported Excel file that should attract charges. Unchecked brands receive the full amount. Paid records are locked.</p>
+    <div id="paymentBrandCharges" class="payment-brand-grid"></div>
+  </div>
   <div class="card">
-    <div class="sectionhead"><div><h3>3. Payment queue</h3><p class="hint">Verify the UPI ID and amount before opening your UPI app.</p></div>
+    <div class="sectionhead"><div><h3>3. Payment queue</h3><p class="hint">Verify the UPI ID and net payable before opening CRED. Charges per brand row: ₹1–₹500 = ₹5; ₹501–₹1,000 = ₹10; above ₹1,000 = ₹20.</p></div>
       <select id="paymentFilter" aria-label="Filter payments"><option value="all">All</option><option value="pending">Pending</option><option value="paid">Paid</option><option value="unmatched">Unmatched</option></select>
     </div>
     <input id="paymentSearch" type="search" placeholder="Search contact or brand" aria-label="Search payment queue">
+    <div class="payment-filter-row"><label>Date <input id="paymentDateFilter" type="date"></label><label>Contact <select id="paymentContactFilter"><option value="">All contacts</option></select></label></div>
     <div id="paymentQueue"></div>
   </div>
 </section>
