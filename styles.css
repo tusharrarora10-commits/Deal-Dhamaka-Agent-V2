@@ -677,3 +677,9 @@ input[type=date],input[type=datetime-local],input[type=time]{
 .payment-bulk-actions{display:grid;grid-template-columns:1fr;gap:9px;margin:14px 0 16px;width:100%}
 .payment-bulk-actions .full{width:100%;min-width:0}
 @media(min-width:560px){.payment-bulk-actions{grid-template-columns:1fr 1fr}}
+
+/* Shared Cloud rebuild safety controls */
+.ddCloudResetZone{margin:18px 0 10px;padding:16px;border:1px solid #7f3348;border-radius:16px;background:linear-gradient(145deg,#241725,#151c2b);}
+.ddCloudResetZone h4{margin:0 0 8px;color:#fecdd3;font-size:15px;}
+.ddCloudResetZone .hint{color:#c5b7c2!important;margin:0 0 12px;}
+.ddCloudResetZone .danger{width:100%;white-space:normal;line-height:1.35;}

@@ -8,7 +8,7 @@ let client=null,workspaceId=null,user=null,busy=false,syncing=false,channel=null
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function status(s,type){const e=$('ddCloudStatus');if(e){e.textContent=s;e.dataset.type=type||'info';}}
-function setBusy(v){busy=v;['ddCloudSignIn','ddCloudSignOut','ddCloudBackup','ddCloudImport','ddCloudRefresh','ddCloudDiagnose','ddCloudWriteTest'].forEach(id=>{if($(id))$(id).disabled=v;});}
+function setBusy(v){busy=v;['ddCloudSignIn','ddCloudSignOut','ddCloudBackup','ddCloudImport','ddCloudLoad','ddCloudRefresh','ddCloudDiagnose','ddCloudWriteTest','ddCloudReset'].forEach(id=>{if($(id))$(id).disabled=v;});}
 function normalize(x){return {contacts:Array.isArray(x.contacts)?x.contacts:[],products:Array.isArray(x.products)?x.products:[],shares:Array.isArray(x.shares)?x.shares:[],activity:Array.isArray(x.activity)?x.activity:[],templates:Array.isArray(x.templates)?x.templates:[]};}
 function local(){try{return normalize(JSON.parse(localStorage.getItem(KEY)||'{}'));}catch(_){return normalize({});}}
 function waTemplates(){try{const a=JSON.parse(localStorage.getItem(TEMPLATE_KEY)||'[]');return Array.isArray(a)?a:[];}catch(_){return [];}}
@@ -71,6 +71,52 @@ async function testCloudWrite(){
  }finally{setBusy(false);}
 }
 async function backup(){const data=JSON.parse(localStorage.getItem(KEY)||'{}');const blob=new Blob([JSON.stringify({exportedAt:new Date().toISOString(),localStorageKey:KEY,data,whatsappTemplates:waTemplates()},null,2)],{type:'application/json'});const u=URL.createObjectURL(blob);const a=document.createElement('a');a.href=u;a.download='deal-dhamaka-backup-'+new Date().toISOString().slice(0,10)+'.json';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),3000);return data;}
+async function fetchAllRows(table){
+ const rows=[];let from=0;const pageSize=500;
+ while(true){const {data,error}=await withTimeout(client.from(table).select('*').eq('workspace_id',workspaceId).range(from,from+pageSize-1),'Backup cloud rows from '+table);if(error)throw error;rows.push(...(data||[]));if(!data||data.length<pageSize)break;from+=pageSize;}
+ return rows;
+}
+function downloadJson(filename,obj){const blob=new Blob([JSON.stringify(obj,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);}
+async function resetCloudFromLocal(){
+ if(busy||!client||!user||!workspaceId)return;
+ const source=local(),wa=waTemplates();
+ const expected={contacts:source.contacts.length,products:source.products.length,shares:source.shares.length,activity:source.activity.length,templates:source.templates.length+wa.length};
+ if(total(expected)===0&&!confirm('This device has no app records. Rebuild the cloud as empty?'))return;
+ const phrase=prompt('This will DELETE every record in this shared workspace data set and then upload ONLY the data currently stored on THIS device. Local data on this device will NOT be deleted.\n\nFirst, download and keep the backup.\n\nType REBUILD CLOUD FROM THIS DEVICE to continue:');
+ if(phrase!=='REBUILD CLOUD FROM THIS DEVICE'){status('Cloud rebuild cancelled. No records were changed.','info');return;}
+ setBusy(true);const wasSyncing=syncing;let rebuildComplete=false;syncing=false;clearTimeout(pushTimer);
+ try{
+  status('Preparing a full local + cloud safety backup before reset…','info');
+  const cloudBackup={};for(const [k,t] of Object.entries(TABLES)){cloudBackup[t]=await fetchAllRows(t);}
+  const localBackup={localStorageKey:KEY,rawLocalData:localStorage.getItem(KEY)||'{}',whatsAppTemplatesKey:TEMPLATE_KEY,rawWhatsAppTemplates:localStorage.getItem(TEMPLATE_KEY)||'[]',parsedData:source,whatsAppTemplates:wa};
+  downloadJson('deal-dhamaka-before-cloud-rebuild-'+new Date().toISOString().replace(/[:.]/g,'-')+'.json',{backupCreatedAt:new Date().toISOString(),workspaceId,account:user.email,local:localBackup,cloud:cloudBackup});
+  status('Safety backup download started. Clearing only workspace data rows; local app data is untouched…','info');await yieldToUI();
+  if(channel){await client.removeChannel(channel);channel=null;}
+  for(const [k,t] of Object.entries(TABLES)){
+   const {error}=await withTimeout(client.from(t).delete().eq('workspace_id',workspaceId).not('id','is',null).select('id'),'Delete old cloud rows from '+t,30000);
+   if(error)throw new Error('Cloud reset stopped while clearing '+t+': '+errorText(error)+'. Local data remains intact. You can retry the rebuild after checking DELETE permission.');
+   const {count,error:countError}=await withTimeout(client.from(t).select('id',{count:'exact',head:true}).eq('workspace_id',workspaceId),'Verify cleared '+t);
+   if(countError)throw countError;if((count||0)!==0)throw new Error('Cloud reset verification failed for '+t+': '+count+' rows remain. Local data remains intact; do not load cloud on another device yet.');
+  }
+  status('Cloud rows cleared. Uploading this device’s preserved local records…','info');await yieldToUI();
+  let uploaded=0;
+  for(const k of ['contacts','products','shares','activity','templates']){
+   const rows=source[k]||[];
+   for(let i=0;i<rows.length;i++){status('Rebuilding cloud: '+TABLES[k]+' '+(i+1)+' of '+rows.length+' · uploaded '+uploaded,'info');await yieldToUI();await upsertOne(k,rows[i],i);uploaded++;}
+  }
+  for(let i=0;i<wa.length;i++){
+   const item=wa[i],id='whatsapp-template-'+idOf(item,'template',i);
+   const {error}=await withTimeout(client.from(TABLES.templates).upsert({workspace_id:workspaceId,id,payload:{...item,_source:TEMPLATE_KEY},updated_at:new Date().toISOString(),updated_by:user.id},{onConflict:'workspace_id,id'}),'Upload WhatsApp template '+(i+1));
+   if(error)throw new Error('Cloud rebuild stopped while uploading WhatsApp template '+(i+1)+': '+errorText(error)+'. Local data remains intact; retry rebuild to continue.');uploaded++;
+  }
+  const actual=await counts();
+  for(const k of Object.keys(expected)){if(actual[k]!==expected[k])throw new Error('Final count mismatch for '+k+': expected '+expected[k]+', found '+actual[k]+'. Local data remains intact. Cloud is not marked ready; retry rebuild after reviewing the backup.');}
+  baseline=JSON.parse(JSON.stringify(source));startSync();rebuildComplete=true;
+  status('Cloud rebuilt successfully from this device. Local data preserved. Verified counts: '+JSON.stringify(actual)+'. Real-time sync restarted.','success');
+  alert('Cloud rebuild completed.\n\nAll old workspace data rows were cleared and replaced with this device’s local records.\n\nLocal data was NOT deleted.\nVerified cloud counts: '+JSON.stringify(actual)+'\n\nKeep the downloaded safety backup. Other devices can now load the rebuilt shared cloud.');
+ }catch(e){const msg=errorText(e);status('Cloud rebuild did not complete: '+msg+'. Local app data was preserved. Keep the safety backup and do not load cloud on another device until the rebuild is verified.','error');alert('Cloud rebuild stopped safely.\n\n'+msg+'\n\nYour local app data was not deleted. The cloud may be partially cleared/rebuilt; keep the downloaded backup and retry only after reviewing the error.');}
+ finally{setBusy(false);if(rebuildComplete&&wasSyncing&&!channel&&user&&workspaceId)startSync();}
+}
 async function upsertOne(k,item,i){
  const table=TABLES[k],id=idOf(item,k,i);
  let payloadJson;
@@ -229,7 +275,7 @@ async function restoreSession(){
  }
 }
 
-function mount(){const settings=$('settings');if(!settings||$('ddCloudCard'))return;const card=document.createElement('div');card.className='card';card.id='ddCloudCard';card.innerHTML='<h3>Shared Cloud</h3><p class="hint">Sign in to the shared workspace. Keep a backup before migration. Local-first storage is preserved.</p><p id="ddCloudIdentity">Not signed in</p><div id="ddCloudStatus" role="status" aria-live="polite">Supabase is configured. Sign in to continue.</div><form id="ddCloudLoginForm"><label>Email<input id="ddCloudEmail" type="email" autocomplete="username" required></label><label>Password<input id="ddCloudPassword" type="password" autocomplete="current-password" required></label><button class="primary full" id="ddCloudSignIn" type="submit">Sign in to Supabase</button></form><div id="ddCloudActions" hidden><button class="secondary full" id="ddCloudBackup" type="button">Download local backup</button><button class="primary full" id="ddCloudImport" type="button">Resume / reconcile local data</button><button class="secondary full" id="ddCloudLoad" type="button">Load shared cloud data / start sync</button><button class="secondary full" id="ddCloudRefresh" type="button">Check cloud record counts</button><button class="secondary full" id="ddCloudDiagnose" type="button">Run read-only connection diagnostics</button><button class="secondary full" id="ddCloudWriteTest" type="button">Test cloud write (temporary row)</button><button class="secondary full" id="ddCloudSignOut" type="button">Sign out</button></div><p class="hint">Resume/reconcile inserts only missing IDs and skips existing cloud rows. It does not delete local or cloud data. Realtime depends on Supabase table publication and valid RLS policies. Review counts after reconciliation.</p>';settings.appendChild(card);$('ddCloudLoginForm').addEventListener('submit',signIn);$('ddCloudSignOut').addEventListener('click',signOut);$('ddCloudBackup').addEventListener('click',()=>backup().then(()=>status('Backup download started.','success')).catch(e=>status(errorText(e),'error')));$('ddCloudImport').addEventListener('click',migrate);$('ddCloudLoad').addEventListener('click',loadCloud);$('ddCloudRefresh').addEventListener('click',inspect);$('ddCloudDiagnose').addEventListener('click',diagnose);$('ddCloudWriteTest').addEventListener('click',testCloudWrite);}
+function mount(){const settings=$('settings');if(!settings||$('ddCloudCard'))return;const card=document.createElement('div');card.className='card';card.id='ddCloudCard';card.innerHTML='<h3>Shared Cloud</h3><p class="hint">Sign in to the shared workspace. Keep a backup before migration. Local-first storage is preserved.</p><p id="ddCloudIdentity">Not signed in</p><div id="ddCloudStatus" role="status" aria-live="polite">Supabase is configured. Sign in to continue.</div><form id="ddCloudLoginForm"><label>Email<input id="ddCloudEmail" type="email" autocomplete="username" required></label><label>Password<input id="ddCloudPassword" type="password" autocomplete="current-password" required></label><button class="primary full" id="ddCloudSignIn" type="submit">Sign in to Supabase</button></form><div id="ddCloudActions" hidden><button class="secondary full" id="ddCloudBackup" type="button">Download local backup</button><button class="primary full" id="ddCloudImport" type="button">Resume / reconcile local data</button><button class="secondary full" id="ddCloudLoad" type="button">Load shared cloud data / start sync</button><button class="secondary full" id="ddCloudRefresh" type="button">Check cloud record counts</button><button class="secondary full" id="ddCloudDiagnose" type="button">Run read-only connection diagnostics</button><button class="secondary full" id="ddCloudWriteTest" type="button">Test cloud write (temporary row)</button><div class="ddCloudResetZone"><h4>Rebuild shared cloud from this device</h4><p class="hint">Downloads a combined local + cloud safety backup, clears records only from this shared workspace, then uploads the data currently stored on this device. Contacts, products, shares, payment history, activity and templates on this device are preserved. Other devices should load cloud only after count verification.</p><button class="danger full" id="ddCloudReset" type="button">Clear cloud and rebuild from this device’s local data</button></div><button class="secondary full" id="ddCloudSignOut" type="button">Sign out</button></div><p class="hint">Resume/reconcile inserts only missing IDs and skips existing cloud rows. It does not delete local or cloud data. Realtime depends on Supabase table publication and valid RLS policies. Review counts after reconciliation.</p>';settings.appendChild(card);$('ddCloudLoginForm').addEventListener('submit',signIn);$('ddCloudSignOut').addEventListener('click',signOut);$('ddCloudBackup').addEventListener('click',()=>backup().then(()=>status('Backup download started.','success')).catch(e=>status(errorText(e),'error')));$('ddCloudImport').addEventListener('click',migrate);$('ddCloudLoad').addEventListener('click',loadCloud);$('ddCloudRefresh').addEventListener('click',inspect);$('ddCloudDiagnose').addEventListener('click',diagnose);$('ddCloudWriteTest').addEventListener('click',testCloudWrite);$('ddCloudReset').addEventListener('click',resetCloudFromLocal);}
 // Observe legacy writes so existing app scripts remain compatible. Sync writes only changed records; deletes are intentionally not propagated automatically.
 const originalSet=Storage.prototype.setItem;Storage.prototype.setItem=function(k,v){originalSet.call(this,k,v);if(syncing&&(k===KEY||k===TEMPLATE_KEY))schedulePush();};
 window.addEventListener('DOMContentLoaded',()=>{mount();restoreSession();});if(document.readyState!=='loading'){mount();restoreSession();}
