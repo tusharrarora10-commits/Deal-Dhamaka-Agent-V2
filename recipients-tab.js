@@ -26,7 +26,8 @@
       const page = document.createElement('section');
       page.id = 'recipients'; page.className = 'page';
       page.innerHTML = `
-        <div class="sectionhead"><div><h2>Recipients</h2><p>Recipient-wise share details and order status</p></div><button class="secondary" id="refreshRecipients" type="button">Refresh</button></div>
+        <div class="group-subnav" data-group="more"><button data-page="history">History</button><button data-page="tracking">Tracking</button><button data-page="recipients" class="active">Recipient activity</button><button data-page="settings">Settings</button></div>
+        <div class="sectionhead"><div><h2>Recipient activity</h2><p>Recipient-wise share details and order status</p></div><button class="secondary" id="refreshRecipients" type="button">Refresh</button></div>
         <div class="stats"><div class="stat"><b id="recipientShareTotal">0</b><span>Share Attempts</span></div><div class="stat"><b id="recipientOrderedTotal">0</b><span>Marked Ordered</span></div><div class="stat"><b id="recipientPendingTotal">0</b><span>Not Marked Ordered</span></div></div>
         <div class="card"><h3>Find Recipient Details</h3><input id="recipientSearch" class="search" placeholder="Search recipient, phone, brand or product" autocomplete="off"><select id="recipientOrderFilter"><option value="all">All statuses</option><option value="ordered">Product ordered</option><option value="pending">Not marked ordered</option></select><label>From date<input id="recipientFromDate" type="date"></label><label>To date<input id="recipientToDate" type="date"></label><button id="clearRecipientFilters" class="secondary full" type="button">Clear Filters</button></div>
         <div class="card"><h3>Recipient Details</h3><div id="recipientDetailsList"></div></div>`;
@@ -34,16 +35,9 @@
       if (settings?.parentNode) settings.parentNode.insertBefore(page, settings);
       else document.querySelector('main').appendChild(page);
     }
-    if (!document.querySelector('.tabbar [data-page="recipients"]')) {
-      const tab = document.createElement('button'); tab.type = 'button'; tab.dataset.page = 'recipients'; tab.innerHTML = '♧<span>Recipients</span>';
-      const settingsTab = document.querySelector('.tabbar [data-page="settings"]');
-      if (settingsTab) settingsTab.insertAdjacentElement('beforebegin', tab); else document.querySelector('.tabbar').appendChild(tab);
-      tab.addEventListener('click', () => { if (typeof window.showPage === 'function') window.showPage('recipients'); render(); });
-    }
     const style = document.createElement('style');
     style.textContent = `
-      .tabbar{grid-template-columns:repeat(9,minmax(0,1fr))!important}.tabbar button{min-width:0!important}
-      #recipients .recipient-record{background:#fff;border-bottom:1px solid #e5e7eb;padding:16px 0}
+            #recipients .recipient-record{background:#fff;border-bottom:1px solid #e5e7eb;padding:16px 0}
       #recipients .recipient-record h3{font-size:17px;margin:0 0 10px;overflow-wrap:anywhere}
       #recipients .recipient-record p{color:#6b7280;font-size:13px;line-height:1.5;margin:5px 0;overflow-wrap:anywhere}
       #recipients .recipient-record .badge{font-size:12px;border-radius:20px;background:#f3f4f6;padding:5px 10px;display:inline-block;margin:2px 4px 2px 0}
@@ -52,6 +46,7 @@
       @media(max-width:520px){.tabbar button span{font-size:8px!important}#recipients .recipient-record h3{font-size:15px}}
     `;
     document.head.appendChild(style);
+    pageNavHandlers();
     $('refreshRecipients').onclick = render;
     $('recipientSearch').oninput = render;
     $('recipientOrderFilter').onchange = render;
@@ -59,13 +54,23 @@
     $('recipientToDate').onchange = render;
     $('clearRecipientFilters').onclick = () => { $('recipientSearch').value=''; $('recipientOrderFilter').value='all'; $('recipientFromDate').value=''; $('recipientToDate').value=''; render(); };
     // Existing app navigation runs first; render after the tab becomes active.
-    document.querySelectorAll('.tabbar [data-page="recipients"]').forEach(tab => tab.addEventListener('click', () => setTimeout(render, 0)));
+    document.querySelectorAll('[data-page="recipients"]').forEach(tab => tab.addEventListener('click', () => setTimeout(render, 0)));
+    window.renderRecipientsTab = render;
     if (typeof window.toggleOrdered === 'function' && !window.toggleOrdered.__recipientRefresh) {
       const original = window.toggleOrdered;
       const wrapped = function(...args) { const result = original.apply(this,args); render(); return result; };
       wrapped.__recipientRefresh = true; window.toggleOrdered = wrapped;
     }
     render();
+  }
+
+  function pageNavHandlers() {
+    document.querySelectorAll('#recipients [data-page]').forEach(button => {
+      button.onclick = () => {
+        if (typeof window.showPage === 'function') window.showPage(button.dataset.page);
+        if (button.dataset.page === 'recipients') render();
+      };
+    });
   }
 
   function render() {

@@ -14,8 +14,8 @@
 <body>
 <header class="topbar">
   <div>
-    <div class="eyebrow">DEAL DHAMAKA</div>
-    <h1>WhatsApp Agent</h1>
+    <div class="eyebrow">DEALS BY TA</div>
+    <h1>Deal Dhamaka Agent</h1>
   </div>
   <button id="installBtn" class="iconbtn" hidden>＋</button>
 </header>
@@ -122,7 +122,24 @@
   </div>
 </section>
 
+<section id="more" class="page">
+  <div class="sectionhead"><div><h2>More</h2><p>Additional tools and activity views</p></div></div>
+  <div class="more-tile-grid">
+    <button type="button" data-page="manual"><span>✎</span><b>Manual Share / Order Entry</b><small>Record offline shares and orders</small></button>
+    <button type="button" data-page="history"><span>◷</span><b>History</b><small>Review previous share activity</small></button>
+    <button type="button" data-page="tracking"><span>↗</span><b>Tracking</b><small>Brands, products and order status</small></button>
+    <button type="button" data-page="recipients"><span>♙</span><b>Recipient Activity</b><small>Individual contact timelines</small></button>
+  </div>
+</section>
+
+<section id="manual" class="page">
+  <div class="more-back"><button type="button" class="secondary" data-page="more">← More tools</button></div>
+  <div class="sectionhead"><div><h2>Manual Share &amp; Order Entry</h2><p>Record offline shares or orders without opening WhatsApp.</p></div></div>
+  <div id="manualShareHost"></div>
+</section>
+
 <section id="history" class="page">
+  <div class="more-back"><button type="button" class="secondary" data-page="more">← More tools</button></div>
   <div class="sectionhead">
     <div><h2>History</h2><p>Share attempts initiated from this app</p></div>
     <button class="danger" id="clearHistory">Clear</button>
@@ -132,6 +149,7 @@
 </section>
 
 <section id="tracking" class="page">
+  <div class="more-back"><button type="button" class="secondary" data-page="more">← More tools</button></div>
   <div class="sectionhead">
     <div><h2>Tracking</h2><p>Brand, product type, recipient, order status and date-wise counts</p></div>
     <button class="secondary" id="refreshTracking">Refresh</button>
@@ -218,6 +236,7 @@
 </section>
 
 <section id="refunds" class="page">
+  <div class="group-subnav" data-group="finance"><button data-page="payments">Payment queue</button><button data-page="refunds" class="active">Refunds</button></div>
   <div class="sectionhead"><div><h2>Refunds</h2><p>Review eligible shared products and mark refunds</p></div><button class="secondary" id="refreshRefunds" type="button">Refresh</button></div>
   <div class="card refund-summary-card">
     <h3>Refund summary</h3>
@@ -234,6 +253,7 @@
 
 
 <section id="payments" class="page">
+  <div class="group-subnav" data-group="finance"><button data-page="payments" class="active">Payment queue</button><button data-page="refunds">Refunds</button></div>
   <div class="sectionhead">
     <div><h2>Payments</h2><p>Import pending payments from Excel and pay using saved contact UPI IDs. Campaign support Charges are deducted once per brand/payment row.</p></div>
   </div>
@@ -293,16 +313,14 @@
 </section>
 </main>
 
-<nav class="tabbar">
+<nav class="tabbar" aria-label="Main navigation">
   <button data-page="dashboard">⌂<span>Home</span></button>
   <button data-page="contacts">♙<span>Contacts</span></button>
   <button data-page="products">▣<span>Products</span></button>
-  <button data-page="send">↗<span>Send</span></button>
-  <button data-page="history">◷<span>History</span></button>
+  <button data-page="send">↗<span>Share</span></button>
+  <button data-page="payments">₹<span>Finance</span></button>
   <button data-page="settings">⚙<span>Settings</span></button>
-  <button data-page="tracking">📊<span>Tracking</span></button>
-  <button data-page="payments">₹<span>Payments</span></button>
-  <button data-page="refunds">↩<span>Refunds</span></button>
+  <button data-page="more">☰<span>More</span></button>
 </nav>
 
 <div id="modal" class="modal" hidden>

@@ -188,26 +188,37 @@ function updateStats() {
 ========================= */
 
 function showPage(name) {
+  // Seven primary destinations. More is a hub for Manual, History, Tracking and Recipient Activity.
+  const aliases = { finance: "payments", share: "send" };
+  name = aliases[name] || name;
+  const morePages = ["more", "manual", "history", "tracking", "recipients"];
+  const financePages = ["payments", "refunds"];
+  const activeGroup = morePages.includes(name) ? "more" : (financePages.includes(name) ? "payments" : name);
+
   document.querySelectorAll(".page").forEach(x =>
     x.classList.toggle("active", x.id === name)
   );
-
   document.querySelectorAll(".tabbar button").forEach(x =>
+    x.classList.toggle("active", x.dataset.page === activeGroup)
+  );
+  document.querySelectorAll(".group-subnav button[data-page]").forEach(x =>
     x.classList.toggle("active", x.dataset.page === name)
   );
 
   if (name === "contacts") renderContacts();
   if (name === "products") renderProducts();
   if (name === "send") renderSendLists();
+  if (name === "manual") renderTracking();
   if (name === "history") renderHistory();
   if (name === "tracking") renderTracking();
   if (name === "payments" && typeof window.renderPayments === "function") window.renderPayments();
-  if (name === "payments" && typeof window.renderPayments === "function") window.renderPayments();
   if (name === "refunds" && typeof window.renderRefunds === "function") window.renderRefunds();
+  if (name === "recipients" && typeof window.renderRecipientsTab === "function") window.renderRecipientsTab();
 
   updateStats();
   window.scrollTo(0, 0);
 }
+window.showPage = showPage;
 
 document.querySelectorAll(".tabbar button,[data-page]").forEach(b =>
   b.addEventListener("click", () => showPage(b.dataset.page))
@@ -339,6 +350,12 @@ function addContact(x) {
       }
     }
   );
+}
+
+function productLinkTotal(product) {
+  const prices = Array.isArray(product?.links) ? product.links : [];
+  const total = prices.reduce((sum, link) => sum + Math.max(0, Number(String(link.price ?? "").replace(/,/g, "")) || 0), 0);
+  return total > 0 ? total : Math.max(0, Number(product?.price) || 0);
 }
 
 /* =========================
@@ -1388,7 +1405,7 @@ $("openNext").onclick = () => {
     brand: p.brand,
     productType: p.productType,
     platform: p.platform,
-    priceSnapshot: Math.max(0, Number(p.price) || 0),
+    priceSnapshot: productLinkTotal(p),
     time: Date.now(),
     message: msg,
     status: "WhatsApp opened; send not confirmed",
@@ -1706,8 +1723,8 @@ const trackingFilterSearch = {
 };
 
 function renderTracking() {
-  const trackingPage = $("tracking");
-  if (trackingPage && !$("manualSharePanel")) {
+  const manualHost = $("manualShareHost");
+  if (manualHost && !$("manualSharePanel")) {
     const panel = document.createElement("section");
     panel.id = "manualSharePanel";
     panel.className = "card";
@@ -1739,7 +1756,7 @@ function renderTracking() {
       <p class="hint" id="manualCombinationCount">0 share records will be created.</p>
       <button type="button" class="primary big" id="manualShareSave">Save manual records</button>
     `;
-    trackingPage.insertBefore(panel, trackingPage.firstChild);
+    manualHost.appendChild(panel);
   }
 
   const contactBox = $("manualContactOptions"), productBox = $("manualProductOptions");
@@ -1819,7 +1836,7 @@ function renderTracking() {
             phone:String(contact.phone || "").replace(/\D/g,""),
             productId:product.id,productName:product.name,brand:product.brand,
             productType:product.productType,platform:product.platform,
-            priceSnapshot:Number(product.price)||0,time:now,
+            priceSnapshot:productLinkTotal(product),time:now,
             message:"Manually recorded in Deal Dhamaka Agent V2",
             status:"Manually marked as shared",ordered,
             orderedAt:ordered?new Date(now).toISOString():""
