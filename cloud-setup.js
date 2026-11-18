@@ -17,7 +17,7 @@ function errorText(e){const parts=[e&&e.message,e&&e.details,e&&e.hint,e&&e.code
 // Prevent Safari's UI from remaining locked indefinitely when a network request never settles.
 function withTimeout(promise,label,ms=15000){let timer;return Promise.race([promise,new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error(label+' timed out after '+Math.round(ms/1000)+' seconds')),ms);})]).finally(()=>clearTimeout(timer));}
 function yieldToUI(){return new Promise(resolve=>setTimeout(resolve,0));}
-async function ensure(){if(!cfg.url||!cfg.publishableKey||cfg.publishableKey===PLACEHOLDER)throw Error('Supabase URL/publishable key is missing.');if(!window.supabase?.createClient)throw Error('Supabase JS library did not load. Reload on a stable connection; no records were changed.');if(!client)client=window.supabase.createClient(cfg.url,cfg.publishableKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});return client;}
+async function ensure(){if(!cfg.url||!cfg.publishableKey||cfg.publishableKey===PLACEHOLDER)throw Error('Supabase URL/publishable key is missing.');if(!window.supabase?.createClient)throw Error('Supabase JS library did not load. Reload on a stable connection; no records were changed.');if(!client)client=window.supabase.createClient(cfg.url,cfg.publishableKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,storage:window.localStorage}});return client;}
 async function findWorkspace(){const {data,error}=await client.from('dd_workspace_members').select('workspace_id,role').eq('user_id',user.id);if(error)throw error;if(!data?.length)throw Error('Signed-in account is not a member of a workspace.');if(data.length!==1)throw Error('Account has multiple workspace memberships; select the intended workspace before syncing.');workspaceId=data[0].workspace_id;return data[0];}
 async function counts(){const out={};for(const [k,t] of Object.entries(TABLES)){const {count,error}=await withTimeout(client.from(t).select('id',{count:'exact',head:true}).eq('workspace_id',workspaceId),'Count records in '+t);if(error)throw error;out[k]=count||0;}return out;}
 function total(c){return Object.values(c).reduce((a,b)=>a+b,0);}
@@ -180,56 +180,86 @@ async function pullAll(){
 async function pushChanges(){if(!syncing||!client||!workspaceId||!user)return;const now=local();for(const k of Object.keys(TABLES)){const old=new Map((baseline[k]||[]).map((r,i)=>[String(r?.id??'__missing_'+i),JSON.stringify(r)]));for(let i=0;i<now[k].length;i++){const r=now[k][i],id=String(r?.id??'');if(!id)continue;if(old.get(id)!==JSON.stringify(r)){await upsertOne(k,r,i);}}}for(const [i,item] of waTemplates().entries()){const id='whatsapp-template-'+idOf(item,'template',i);const {error}=await client.from(TABLES.templates).upsert({workspace_id:workspaceId,id,payload:{...item,_source:TEMPLATE_KEY},updated_at:new Date().toISOString(),updated_by:user.id},{onConflict:'workspace_id,id'});if(error)throw new Error('WhatsApp template sync failed: '+errorText(error));}baseline=JSON.parse(JSON.stringify(now));}
 let pushTimer=null;function schedulePush(){if(!syncing||busy)return;clearTimeout(pushTimer);pushTimer=setTimeout(()=>pushChanges().catch(e=>status('Sync write failed: '+errorText(e)+'. Local changes remain on this device.','error')),700);}
 function startSync(){if(!client||!workspaceId||!user||channel)return;syncing=true;channel=client.channel('deal-dhamaka-workspace-'+workspaceId);for(const t of Object.values(TABLES))channel.on('postgres_changes',{event:'*',schema:'public',table:t,filter:'workspace_id=eq.'+workspaceId},async()=>{try{await pullAll();}catch(e){status('Realtime refresh failed: '+errorText(e),'error');}});channel.subscribe(s=>{if(s==='SUBSCRIBED')status('Real-time sync is listening for shared changes.','success');else if(s==='CHANNEL_ERROR'||s==='TIMED_OUT')status('Realtime subscription status: '+s+'. Verify Supabase Realtime is enabled for dd_* tables.','error');});}
+async function clearCloudAndPublishLocal(){
+ if(busy||!client||!user||!workspaceId)return;
+ const snapshot=local(),templates=waTemplates();
+ const localCounts={contacts:snapshot.contacts.length,products:snapshot.products.length,shares:snapshot.shares.length,activity:snapshot.activity.length,templates:(snapshot.templates||[]).length+templates.length};
+ const localTotal=Object.values(localCounts).reduce((a,b)=>a+b,0);
+ if(localTotal===0){if(!confirm('This device currently has no local records. Clear all cloud records for this workspace anyway?'))return;}
+ else if(!confirm('IMPORTANT: This will permanently DELETE all old cloud records for this workspace (contacts, products, shares, activity and WhatsApp templates), then upload ONLY the data currently stored on THIS device. Other devices must not run old sync versions. Download a local backup first. Continue?'))return;
+ if(!confirm('FINAL CONFIRMATION: Old cloud data will be erased for this workspace. Local data on this device will be kept and uploaded as the new cloud dataset. Proceed?'))return;
+ setBusy(true);syncing=false;clearTimeout(pushTimer);
+ try{
+  if(channel){await client.removeChannel(channel);channel=null;}
+  status('Step 1 of 3: Clearing old cloud records for this workspace…','info');
+  // Delete only this signed-in workspace's rows. Repeat in case the REST row limit
+  // returns a partial page. No other workspace is touched.
+  for(const [k,table] of Object.entries(TABLES)){
+   let rounds=0;
+   while(true){
+    rounds++;if(rounds>100)throw new Error('Safety stop while clearing '+table+'; too many delete batches.');
+    const result=await withTimeout(client.from(table).delete().eq('workspace_id',workspaceId).select('id'),'Delete old records from '+table,30000);
+    if(result.error)throw new Error('Could not clear '+table+': '+errorText(result.error));
+    if(!result.data||result.data.length===0)break;
+   }
+  }
+  const afterDelete=await counts();
+  if(total(afterDelete)!==0)throw new Error('Cloud deletion verification failed. Remaining counts: '+JSON.stringify(afterDelete)+'. Local data is still preserved; do not load cloud data.');
+  status('Step 2 of 3: Old cloud data cleared. Publishing this device’s local records…','info');
+  let uploaded=0;
+  for(const k of Object.keys(TABLES)){
+   const rows=snapshot[k]||[];
+   for(let i=0;i<rows.length;i++){
+    status('Uploading local '+k+': '+(i+1)+' of '+rows.length+' · total uploaded '+uploaded,'info');
+    await upsertOne(k,rows[i],i);uploaded++;await yieldToUI();
+   }
+  }
+  for(let i=0;i<templates.length;i++){
+   const item=templates[i],id='whatsapp-template-'+idOf(item,'template',i);
+   const row={workspace_id:workspaceId,id,payload:{...item,_source:TEMPLATE_KEY},updated_at:new Date().toISOString(),updated_by:user.id};
+   const {error}=await withTimeout(client.from(TABLES.templates).upsert(row,{onConflict:'workspace_id,id'}),'Upload WhatsApp template '+(i+1));
+   if(error)throw new Error('WhatsApp template upload failed at '+(i+1)+': '+errorText(error));uploaded++;await yieldToUI();
+  }
+  const verified=await counts();
+  const expected={contacts:localCounts.contacts,products:localCounts.products,shares:localCounts.shares,activity:localCounts.activity,templates:localCounts.templates};
+  if(Object.keys(expected).some(k=>verified[k]!==expected[k]))throw new Error('Upload verification mismatch. Expected '+JSON.stringify(expected)+'; cloud now has '+JSON.stringify(verified)+'. Local data remains preserved. Do not load cloud data until reviewed.');
+  baseline=JSON.parse(JSON.stringify(snapshot));
+  baseline.templates=(await client.from(TABLES.templates).select('id,payload').eq('workspace_id',workspaceId)).data?.filter(r=>!(r.payload&&r.payload._source===TEMPLATE_KEY)).map(r=>r.payload)||[];
+  startSync();
+  window.dispatchEvent(new CustomEvent('deal-dhamaka-data-updated'));
+  status('Complete: old cloud data deleted; only this device’s local data is now in the cloud. Verified counts — '+Object.entries(verified).map(([k,v])=>k+': '+v).join(' · ')+'. Real-time sync is active.','success');
+  alert('Cloud reset and local restore completed.\n\nOld cloud rows deleted for this workspace.\nOnly this device’s local records were uploaded.\n\nVerified cloud counts:\n'+Object.entries(verified).map(([k,v])=>k+': '+v).join('\n')+'\n\nKeep this app open until real-time sync reports connected.');
+ }catch(e){
+  syncing=false;const msg=errorText(e);
+  status('Cloud reset/restore stopped: '+msg+'. Local data on this device was not deleted. Some cloud tables may already have been cleared or partially repopulated; do not choose Load cloud. Retry this reset after checking the counts.','error');
+  alert('Cloud reset/restore did not finish.\n\n'+msg+'\n\nYour local data on this device was not deleted. Cloud may be partially cleared or repopulated. Do NOT load old cloud data. Download a backup and retry after checking cloud counts.');
+ }finally{setBusy(false);}
+}
 async function loadCloud(){if(busy||!client||!user||!workspaceId)return;setBusy(true);try{const c=await counts();if(total(c)===0){status('Cloud is empty. Use migration only after confirming the latest backup.','info');return;}if(!confirm('Load shared cloud records into this browser? Existing local records with matching IDs will be refreshed; local-only records are preserved.'))return;await pullAll();startSync();schedulePush();status('Cloud data loaded. Local-only records are being uploaded; real-time sync subscription started.','success');}catch(e){status('Cloud load failed: '+errorText(e),'error');}finally{setBusy(false);}}
-async function signIn(e){e.preventDefault();if(busy)return;setBusy(true);try{await ensure();const {data,error}=await client.auth.signInWithPassword({email:$('ddCloudEmail').value.trim(),password:$('ddCloudPassword').value});if(error)throw error;user=data.user;await findWorkspace();$('ddCloudIdentity').textContent='Signed in as '+user.email+' · workspace verified';$('ddCloudLoginForm').hidden=true;$('ddCloudActions').hidden=false;await pullAll();startSync();status('Signed in. Local records reconciled with shared cloud; real-time sync started.','success');}catch(e2){status('Sign-in/setup failed: '+errorText(e2),'error');}finally{setBusy(false);if(user&&workspaceId)schedulePush();}}
+async function signIn(e){e.preventDefault();if(busy)return;setBusy(true);try{await ensure();const {data,error}=await client.auth.signInWithPassword({email:$('ddCloudEmail').value.trim(),password:$('ddCloudPassword').value});if(error)throw error;user=data.user;await findWorkspace();$('ddCloudIdentity').textContent='Signed in as '+user.email+' · workspace verified';$('ddCloudLoginForm').hidden=true;$('ddCloudActions').hidden=false;status('Signed in. Existing cloud data has NOT been loaded. Download a backup, then use “Clear old cloud & sync this device” to replace it with this device’s local data.','success');}catch(e2){status('Sign-in/setup failed: '+errorText(e2),'error');}finally{setBusy(false);}}
 async function signOut(){if(!client)return;setBusy(true);try{if(channel){await client.removeChannel(channel);channel=null;}syncing=false;await client.auth.signOut();user=null;workspaceId=null;$('ddCloudLoginForm').hidden=false;$('ddCloudActions').hidden=true;$('ddCloudIdentity').textContent='Not signed in';status('Signed out. Local app data remains on this device.','info');}catch(e){status(errorText(e),'error');}finally{setBusy(false);}}
 async function restoreSession(){
- // Restore authentication independently from cloud data loading. A cloud/RLS/network
- // error must never make the UI pretend the user is signed out.
- try {
+ try{
   await ensure();
-  const {data,error}=await client.auth.getSession();
-  if(error) throw error;
+  const {data,error}=await client.auth.getSession();if(error)throw error;
   const session=data&&data.session;
-  if(!session||!session.user){
-   user=null; workspaceId=null;
-   if($('ddCloudIdentity')) $('ddCloudIdentity').textContent='Not signed in';
-   if($('ddCloudLoginForm')) $('ddCloudLoginForm').hidden=false;
-   if($('ddCloudActions')) $('ddCloudActions').hidden=true;
-   status('No saved Supabase session found in this browser. Sign in once on this same browser/app.','info');
-   return;
-  }
+  if(!session||!session.user){user=null;workspaceId=null;if($('ddCloudIdentity'))$('ddCloudIdentity').textContent='Not signed in';if($('ddCloudLoginForm'))$('ddCloudLoginForm').hidden=false;if($('ddCloudActions'))$('ddCloudActions').hidden=true;status('No saved Supabase session found in this browser. Sign in once; the session is stored in browser local storage.','info');return;}
   user=session.user;
-  if($('ddCloudIdentity')) $('ddCloudIdentity').textContent='Signed in as '+(user.email||'account')+' · session restored';
-  if($('ddCloudLoginForm')) $('ddCloudLoginForm').hidden=true;
-  if($('ddCloudActions')) $('ddCloudActions').hidden=false;
-  status('Saved Supabase session restored. Verifying workspace…','info');
- } catch(e) {
-  user=null; workspaceId=null;
-  if($('ddCloudLoginForm')) $('ddCloudLoginForm').hidden=false;
-  if($('ddCloudActions')) $('ddCloudActions').hidden=true;
-  status('Could not restore saved Supabase session: '+errorText(e)+'. Sign in again.','error');
-  return;
- }
- // A workspace or sync failure is not an authentication failure. Keep the session
- // and signed-in UI intact so the user is not prompted to log in repeatedly.
- try {
+  if($('ddCloudIdentity'))$('ddCloudIdentity').textContent='Signed in as '+(user.email||'account')+' · session restored';
+  if($('ddCloudLoginForm'))$('ddCloudLoginForm').hidden=true;if($('ddCloudActions'))$('ddCloudActions').hidden=false;
   await findWorkspace();
-  if($('ddCloudIdentity')) $('ddCloudIdentity').textContent='Signed in as '+(user.email||'account')+' · workspace verified';
-  await inspect();
-  await pullAll();
-  startSync();
-  schedulePush();
-  status('Session restored. Local records reconciled with shared cloud; real-time sync started.','success');
- } catch(e) {
-  if($('ddCloudIdentity')) $('ddCloudIdentity').textContent='Signed in as '+(user.email||'account')+' · session retained';
-  if($('ddCloudLoginForm')) $('ddCloudLoginForm').hidden=true;
-  if($('ddCloudActions')) $('ddCloudActions').hidden=false;
-  status('You are still signed in, but cloud startup failed: '+errorText(e)+'. Retry Load shared cloud data / start sync; no local data was deleted.','error');
+  status('Supabase session restored. Cloud data was left untouched and was NOT downloaded. Review your local backup, then run “Clear old cloud & sync this device” when ready.','success');
+ }catch(e){
+  // Do not sign out or clear the persisted auth session because a workspace/network
+  // startup error is not proof that the credentials expired.
+  if(user){if($('ddCloudIdentity'))$('ddCloudIdentity').textContent='Signed in as '+(user.email||'account')+' · workspace check pending';if($('ddCloudLoginForm'))$('ddCloudLoginForm').hidden=true;if($('ddCloudActions'))$('ddCloudActions').hidden=false;}
+  else{if($('ddCloudLoginForm'))$('ddCloudLoginForm').hidden=false;if($('ddCloudActions'))$('ddCloudActions').hidden=true;}
+  status('Session startup issue: '+errorText(e)+'. Your local data is untouched. Retry by reopening Settings; sign in again only if Supabase reports an expired session.','error');
  }
 }
 
-function mount(){const settings=$('settings');if(!settings||$('ddCloudCard'))return;const card=document.createElement('div');card.className='card';card.id='ddCloudCard';card.innerHTML='<h3>Shared Cloud</h3><p class="hint">Sign in to the shared workspace. Keep a backup before migration. Local-first storage is preserved.</p><p id="ddCloudIdentity">Not signed in</p><div id="ddCloudStatus" role="status" aria-live="polite">Supabase is configured. Sign in to continue.</div><form id="ddCloudLoginForm"><label>Email<input id="ddCloudEmail" type="email" autocomplete="username" required></label><label>Password<input id="ddCloudPassword" type="password" autocomplete="current-password" required></label><button class="primary full" id="ddCloudSignIn" type="submit">Sign in to Supabase</button></form><div id="ddCloudActions" hidden><button class="secondary full" id="ddCloudBackup" type="button">Download local backup</button><button class="primary full" id="ddCloudImport" type="button">Resume / reconcile local data</button><button class="secondary full" id="ddCloudLoad" type="button">Load shared cloud data / start sync</button><button class="secondary full" id="ddCloudRefresh" type="button">Check cloud record counts</button><button class="secondary full" id="ddCloudDiagnose" type="button">Run read-only connection diagnostics</button><button class="secondary full" id="ddCloudWriteTest" type="button">Test cloud write (temporary row)</button><button class="secondary full" id="ddCloudSignOut" type="button">Sign out</button></div><p class="hint">Resume/reconcile inserts only missing IDs and skips existing cloud rows. It does not delete local or cloud data. Realtime depends on Supabase table publication and valid RLS policies. Review counts after reconciliation.</p>';settings.appendChild(card);$('ddCloudLoginForm').addEventListener('submit',signIn);$('ddCloudSignOut').addEventListener('click',signOut);$('ddCloudBackup').addEventListener('click',()=>backup().then(()=>status('Backup download started.','success')).catch(e=>status(errorText(e),'error')));$('ddCloudImport').addEventListener('click',migrate);$('ddCloudLoad').addEventListener('click',loadCloud);$('ddCloudRefresh').addEventListener('click',inspect);$('ddCloudDiagnose').addEventListener('click',diagnose);$('ddCloudWriteTest').addEventListener('click',testCloudWrite);}
+function mount(){const settings=$('settings');if(!settings||$('ddCloudCard'))return;const card=document.createElement('div');card.className='card';card.id='ddCloudCard';card.innerHTML='<h3>Shared Cloud</h3><p class="hint">Sign in once to keep this browser connected. Cloud records are never downloaded automatically. When ready, clear the old workspace data and publish only the local data on this device.</p><p id="ddCloudIdentity">Not signed in</p><div id="ddCloudStatus" role="status" aria-live="polite">Supabase is configured. Sign in to continue.</div><form id="ddCloudLoginForm"><label>Email<input id="ddCloudEmail" type="email" autocomplete="username" required></label><label>Password<input id="ddCloudPassword" type="password" autocomplete="current-password" required></label><button class="primary full" id="ddCloudSignIn" type="submit">Sign in to Supabase</button></form><div id="ddCloudActions" hidden><button class="secondary full" id="ddCloudBackup" type="button">Download local backup</button><button class="danger full" id="ddCloudReset" type="button">Clear old cloud &amp; sync this device</button><button class="secondary full" id="ddCloudSignOut" type="button">Sign out</button></div><p class="hint">Reset affects only the signed-in workspace and the five app tables: contacts, products, shares, activity and WhatsApp templates. It keeps local records on this device. After successful verification, real-time sync starts from this newly uploaded dataset. Do not use an older app build on another device after the reset.</p>';settings.appendChild(card);$('ddCloudLoginForm').addEventListener('submit',signIn);$('ddCloudSignOut').addEventListener('click',signOut);$('ddCloudBackup').addEventListener('click',()=>backup().then(()=>status('Local backup download started.','success')).catch(e=>status(errorText(e),'error')));$('ddCloudReset').addEventListener('click',clearCloudAndPublishLocal);}
+
 // Observe legacy writes so existing app scripts remain compatible. Sync writes only changed records; deletes are intentionally not propagated automatically.
 const originalSet=Storage.prototype.setItem;Storage.prototype.setItem=function(k,v){originalSet.call(this,k,v);if(syncing&&(k===KEY||k===TEMPLATE_KEY))schedulePush();};
 window.addEventListener('DOMContentLoaded',()=>{mount();restoreSession();});if(document.readyState!=='loading'){mount();restoreSession();}
